@@ -146,6 +146,17 @@ static:
 proc nodevisiting(astSym: NimNode, pattern: NimNode, depth: int, blockLabel, errorSym, result: NimNode): void =
   let ind = "  ".repeat(depth) # indentation
 
+  proc genMatchLogic(matchProc, argumentSym: NimNode): void =
+    result.add quote do:
+      `errorSym` = `astSym`.`matchProc`(`argumentSym`)
+      if `errorSym`.kind != NoError:
+        break `blockLabel`
+
+  proc handleIdent(ident: NimNode): void =
+    if not ident.eqIdent("_"):
+      let kindLit = ident("nnk" & $ident)
+      genMatchLogic(bindSym"matchKind", kindLit)
+
   # generate recursively a matching expression
   if pattern.kind in {nnkCall, nnkCommand}:
     pattern[0].expectKind nnkIdent
@@ -157,31 +168,19 @@ proc nodevisiting(astSym: NimNode, pattern: NimNode, depth: int, blockLabel, err
         else:
           pattern[1][0].expectIdent "ident"
           pattern[1][1].strVal
-      result.add quote do:
-        `errorSym` = `astSym`.matchIdent `identStr`
-        if `errorSym`.kind != NoError:
-          break `blockLabel`
+      genMatchLogic(bindSym"matchIdent", newLit(identStr))
+
     elif $pattern[0] in literals:
       echo ind, "newLit(", pattern[1].repr, ")"
-      let literal = pattern[1]
-      result.add quote do:
-        `errorSym` = `astSym`.matchValue(`literal`)
-        if `errorSym`.kind != NoError:
-          break `blockLabel`
+      genMatchLogic(bindSym"matchValue", pattern[1])
+
     else:
       echo ind, pattern[0], "("
-      let kindLit = ident("nnk" & $pattern[0])
-      result.add quote do:
-        `errorSym` = `astSym`.matchKind `kindLit`
-        if `errorSym`.kind != NoError:
-          break `blockLabel`
+      handleIdent(pattern[0])
 
       if pattern[0].len > 0:
         let lengthLit = newLit(pattern[0].len - 1)
-        result.add quote do:
-          `errorSym` = `astSym`.matchLen `lengthLit`
-          if `errorSym`.kind != NoError:
-            break `blockLabel`
+        genMatchLogic(bindSym"matchLen", lengthLit)
 
       for i in 1 ..< pattern.len:
         let childSym = genSym(nskLet)
@@ -200,13 +199,7 @@ proc nodevisiting(astSym: NimNode, pattern: NimNode, depth: int, blockLabel, err
 
   elif pattern.kind == nnkIdent:
     echo ind, pattern.repr
-    if not pattern.eqIdent "_":
-      let kindLit = ident("nnk" & $pattern)
-      result.add quote do:
-        `errorSym` = `astSym`.matchKind `kindLit`
-        if `errorSym`.kind != NoError:
-          break `blockLabel`
-
+    handleIdent(pattern)
 
   elif pattern.kind == nnkInfix:
     pattern[0].expectIdent("@")
@@ -259,7 +252,7 @@ macro foo(arg: untyped): untyped =
 
   matchAst(arg, matchError):
   of StmtList(
-    LetSection(
+    _(
       IdentDefs(
         Ident(ident"a"),
         Empty, IntLit(123)
