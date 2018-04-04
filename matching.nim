@@ -59,7 +59,9 @@ proc `$`(arg: MatchingError): string =
     result.add "    "
     result.add line
     result.add "\n"
-  result.add "  kind: "
+  result.add "  lininfo:\n    "
+  result.add arg.node.lineinfo
+  result.add "\n  kind: "
   result.add $arg.kind
   result.add "\n"
   case arg.kind
@@ -198,11 +200,12 @@ proc nodevisiting(astSym: NimNode, pattern: NimNode, depth: int, blockLabel, err
 
   elif pattern.kind == nnkIdent:
     echo ind, pattern.repr
-    let kindLit = ident("nnk" & $pattern)
-    result.add quote do:
-      `errorSym` = `astSym`.matchKind `kindLit`
-      if `errorSym`.kind != NoError:
-        break `blockLabel`
+    if not pattern.eqIdent "_":
+      let kindLit = ident("nnk" & $pattern)
+      result.add quote do:
+        `errorSym` = `astSym`.matchKind `kindLit`
+        if `errorSym`.kind != NoError:
+          break `blockLabel`
 
 
   elif pattern.kind == nnkInfix:
@@ -262,14 +265,7 @@ macro foo(arg: untyped): untyped =
         Empty, IntLit(123)
       )
     ),
-    LetSection(
-      IdentDefs(
-        Ident("b"),
-        Empty,
-        IntLit(342)
-      )
-    ),
-    LetSection,
+    _,
     ForStmt(
       Ident(ident"i"),
       Infix,
