@@ -1,3 +1,11 @@
+# TODO pattern expressions as prefixes (+ * ?)
+# TODO pattern any of several subexpressions (|)
+# TODO how are named subexpressions handled in optional pattern branches?
+# TODO arbitrary matching conditions with if
+# TODO how can predefined nnk sets be used for matching?
+# TODO use pattern matching block as expression
+# TODO documentation
+
 import macros, strutils, tables
 
 type SomeFloat = float | float32 | float64
@@ -270,10 +278,10 @@ macro matchAst(ast: NimNode; args: varargs[untyped]): untyped =
 
   echo result.repr
 
-# TODO pattern expressions as prefixes (+ * ?)
-# TODO pattern any of several subexpressions
-# TODO how are named subexpressions handled in optional pattern branches?
-# TODO arbitrary matching conditions with if
+
+################################################################################
+################################# Example Code #################################
+################################################################################
 
 macro foo(arg: untyped): untyped =
   echo arg.treeRepr
