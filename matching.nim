@@ -217,28 +217,46 @@ proc nodevisiting(astSym: NimNode, pattern: NimNode, depth: int, blockLabel, err
   else:
     echo ind, pattern.repr,  " WARNING: unhandled "
 
-macro matchAst(ast: NimNode; errorSym, ofBranch, elseBranch: untyped): untyped =
+macro matchAst(ast: NimNode; outerErrorSym : untyped; branches: varargs[untyped]): untyped =
+  let elseBranch = branches[^1]
   elseBranch.expectKind nnkElse
-  result = newStmtList()
-  result.add quote do:
-    var `errorSym`: MatchingError
+  let outerBlockLabel = genSym(nskLabel, "matchingSection")
 
-  ofBranch.expectKind nnkOfBranch
-  let pattern = ofBranch[0]
-  let code = ofBranch[1]
-  let stmtList = newStmtList()
-  let blockLabel = genSym(nskLabel, "matching")
-  nodevisiting(ast, pattern, 0, blockLabel, errorSym, stmtList)
-  stmtList.add code
-  result.add quote do:
-    block `blockLabel`:
-      `stmtList`
+  let outerStmtList = newStmtList()
+
+  let errorSymbols = nnkBracket.newTree
+
+  for ofBranch in branches:
+    ofBranch.expectKind({nnkOfBranch, nnkElse})
+    if ofBranch.kind == nnkOfBranch:
+      let pattern = ofBranch[0]
+      let code = ofBranch[1]
+      let stmtList = newStmtList()
+      let blockLabel = genSym(nskLabel, "matchingBranch")
+      let errorSym = genSym(nskVar, "branchError")
+      errorSymbols.add errorSym
+      nodevisiting(ast, pattern, 0, blockLabel, errorSym, stmtList)
+      stmtList.add code
+      outerStmtList.add quote do:
+        var `errorSym`: MatchingError
+        block `blockLabel`:
+          `stmtList`
+    else:
+      discard
 
   let branchContent = elseBranch[0]
-  result.add quote do:
-    echo `errorSym`.expectedKind
-    if `errorSym`.kind != NoError:
-      `branchContent`
+
+  outerStmtList.add quote do:
+    let `outerErrorSym` = @`errorSymbols`
+    for errorSym in `outerErrorSym`:
+      if errorSym.kind == NoError:
+        break `outerBlockLabel`
+
+    `branchContent`
+
+  result = quote do:
+    block `outerBlockLabel`:
+      `outerStmtList`
 
   echo result.repr
 
@@ -251,6 +269,8 @@ macro foo(arg: untyped): untyped =
   echo arg.treeRepr
 
   matchAst(arg, matchError):
+  of StmtList(Ident,Ident,Ident):
+    echo(88*88+33*33)
   of StmtList(
     _(
       IdentDefs(
