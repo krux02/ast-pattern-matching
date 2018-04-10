@@ -167,6 +167,7 @@ proc nodevisiting(astSym: NimNode, pattern: NimNode, depth: int, blockLabel, err
 
   # generate recursively a matching expression
   if pattern.kind in {nnkCall, nnkCommand}:
+    # TODO: pattern[0] could be nnkPar with branching!
     pattern[0].expectKind nnkIdent
     if pattern[0].eqIdent "Ident":
       echo ind, "Ident(", pattern[1].repr, ")"
@@ -221,9 +222,15 @@ proc nodevisiting(astSym: NimNode, pattern: NimNode, depth: int, blockLabel, err
     echo ind, pattern[1].repr, " = "
     nodeVisiting(matchedExpr, pattern[2], depth + 1, blockLabel, errorSym, result)
 
+  elif pattern.kind == nnkPar:
+    # parens are just for ast generation. No special semantic meaning
+    # after the tree has been constructed.
+    echo pattern.lispRepr
+    pattern.expectLen 1
+    nodeVisiting(astSym, pattern[0], depth, blockLabel, errorSym, result)
 
   else:
-    echo ind, pattern.repr,  " WARNING: unhandled "
+    echo ">>>> ", ind, pattern.repr, " <<<< WARNING: unhandled!!! "
 
 macro matchAst(ast: NimNode; args: varargs[untyped]): untyped =
   let beginBranches = if args[0].kind == nnkIdent: 1 else: 0
@@ -278,10 +285,16 @@ macro matchAst(ast: NimNode; args: varargs[untyped]): untyped =
 
   echo result.repr
 
-
 ################################################################################
 ################################# Example Code #################################
 ################################################################################
+
+dumpTree:
+  (var x: int; x += 1; x)
+  (StmtList | StmtListExpr | StmtExpr)(
+    foo @ Ident,
+    Empty
+  )
 
 macro foo(arg: untyped): untyped =
   echo arg.treeRepr
@@ -298,7 +311,7 @@ macro foo(arg: untyped): untyped =
     ),
     _,
     ForStmt(
-      Ident(ident"i"),
+      (Ident)(ident"i"),
       Infix,
       `mysym` @ StmtList
     )
