@@ -217,42 +217,52 @@ proc nodevisiting(astSym: NimNode, pattern: NimNode, depth: int, blockLabel, err
   else:
     echo ind, pattern.repr,  " WARNING: unhandled "
 
-macro matchAst(ast: NimNode; outerErrorSym : untyped; branches: varargs[untyped]): untyped =
-  let elseBranch = branches[^1]
-  elseBranch.expectKind nnkElse
+macro matchAst(ast: NimNode; args: varargs[untyped]): untyped =
+  let beginBranches = if args[0].kind == nnkIdent: 1 else: 0
+  let endBranches   = if args[^1].kind == nnkElse: args.len - 1 else: args.len
+  for i in beginBranches ..< endBranches:
+    args[i].expectKind nnkOfBranch
+
+  let outerErrorSym: NimNode =
+    if beginBranches == 1:
+      args[0].expectKind nnkIdent
+      args[0]
+    else:
+      genSym(nskLet, "errosSeq")
+
+  let elseBranch =
+    if endBranches == args.len - 1:
+      args[^1].expectKind(nnkElse)
+      args[^1][0]
+    else:
+      newEmptyNode()
+
   let outerBlockLabel = genSym(nskLabel, "matchingSection")
-
   let outerStmtList = newStmtList()
-
   let errorSymbols = nnkBracket.newTree
 
-  for ofBranch in branches:
-    ofBranch.expectKind({nnkOfBranch, nnkElse})
-    if ofBranch.kind == nnkOfBranch:
-      let pattern = ofBranch[0]
-      let code = ofBranch[1]
-      let stmtList = newStmtList()
-      let blockLabel = genSym(nskLabel, "matchingBranch")
-      let errorSym = genSym(nskVar, "branchError")
-      errorSymbols.add errorSym
-      nodevisiting(ast, pattern, 0, blockLabel, errorSym, stmtList)
-      stmtList.add code
-      outerStmtList.add quote do:
-        var `errorSym`: MatchingError
-        block `blockLabel`:
-          `stmtList`
-    else:
-      discard
+  for i in beginBranches ..< endBranches:
+    let ofBranch = args[i]
 
-  let branchContent = elseBranch[0]
+    ofBranch.expectKind(nnkOfBranch)
+    let pattern = ofBranch[0]
+    let code = ofBranch[1]
+    let stmtList = newStmtList()
+    let blockLabel = genSym(nskLabel, "matchingBranch")
+    let errorSym = genSym(nskVar, "branchError")
+    errorSymbols.add errorSym
+    nodevisiting(ast, pattern, 0, blockLabel, errorSym, stmtList)
+    stmtList.add code
+    stmtList.add nnkBreakStmt.newTree(outerBlockLabel)
+
+    outerStmtList.add quote do:
+      var `errorSym`: MatchingError
+      block `blockLabel`:
+        `stmtList`
 
   outerStmtList.add quote do:
     let `outerErrorSym` = @`errorSymbols`
-    for errorSym in `outerErrorSym`:
-      if errorSym.kind == NoError:
-        break `outerBlockLabel`
-
-    `branchContent`
+    `elseBranch`
 
   result = quote do:
     block `outerBlockLabel`:
