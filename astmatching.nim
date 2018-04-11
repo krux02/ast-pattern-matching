@@ -8,6 +8,17 @@
 
 import macros, strutils, tables
 
+export macros
+
+
+when isMainModule:
+  template debug(args: varargs[untyped]): untyped =
+    echo args
+else:
+  template debug(args: varargs[untyped]): untyped =
+    discard
+
+
 type SomeFloat = float | float32 | float64
 
 proc expectIdent(arg: NimNode; value: string): void {.compileTime.} =
@@ -110,7 +121,9 @@ proc matchKind(arg: NimNode; kind: set[NimNodeKind]): MatchingError {.compileTim
     result.kind = WrongKind
     result.expectedKind = kind
 
-proc matchIdent(arg: NimNode; value: string): MatchingError {.compileTime.} =
+# wtf why this star?
+
+proc matchIdent*(arg: NimNode; value: string): MatchingError {.compileTime.} =
   if not arg.eqIdent value:
     result.node = arg
     result.kind = WrongIdent
@@ -171,7 +184,7 @@ proc generateMatchingCode(astSym: NimNode, pattern: NimNode, depth: int, blockLa
       # TODO: pattern[0] could be nnkPar with branching!
       if pattern[0].kind == nnkIdent:
         if pattern[0].eqIdent "nnkIdent":
-          echo ind, "Ident(", pattern[1].repr, ")"
+          debug ind, "Ident(", pattern[1].repr, ")"
           let identStr =
             if pattern[1].kind == nnkStrLit:
               pattern[1].strVal
@@ -181,11 +194,18 @@ proc generateMatchingCode(astSym: NimNode, pattern: NimNode, depth: int, blockLa
           genMatchLogic(bindSym"matchIdent", newLit(identStr))
 
         elif pattern[0] in literals:
-          echo ind, "newLit(", pattern[1].repr, ")"
-          genMatchLogic(bindSym"matchValue", pattern[1])
+
+          if pattern.len == 1:
+            pattern[0].expectIdent "nnkNilLit"
+            debug ind, "newNilLit()"
+            debug pattern.lispRepr
+
+          else:
+            debug ind, "newLit(", pattern[1].repr, ")"
+            genMatchLogic(bindSym"matchValue", pattern[1])
 
         else:
-          echo ind, pattern[0], "("
+          debug ind, pattern[0], "("
           handleIdent(pattern[0])
 
           if pattern[0].len > 0:
@@ -198,23 +218,23 @@ proc generateMatchingCode(astSym: NimNode, pattern: NimNode, depth: int, blockLa
             result.add quote do:
               let `childSym` = `astSym`[`indexLit`]
             nodeVisiting(childSym, pattern[i], depth + 1)
-          echo ind, ")"
+          debug ind, ")"
 
       elif pattern[0].kind == nnkPar and pattern[0].len == 0 and pattern[0].kind == nnkIdent:
         handleIdent(pattern[0][0])
 
       else:
-        echo ">>>> ", ind, pattern.lispRepr, " <<<< WARNING: unhandled!!! "
+        debug ">>>> ", ind, pattern.lispRepr, " <<<< WARNING: unhandled!!! "
 
     elif pattern.kind == nnkAccQuoted:
-      echo ind, pattern.repr
+      debug ind, pattern.repr
       let matchedExpr = pattern[0]
       matchedExpr.expectKind nnkIdent
       result.add quote do:
         let `matchedExpr` = `astSym`
 
     elif pattern.kind == nnkIdent:
-      echo ind, pattern.repr
+      debug ind, pattern.repr
       handleIdent(pattern)
 
     elif pattern.kind == nnkInfix:
@@ -226,22 +246,22 @@ proc generateMatchingCode(astSym: NimNode, pattern: NimNode, depth: int, blockLa
       result.add quote do:
         let `matchedExpr` = `astSym`
 
-      echo ind, pattern[1].repr, " = "
+      debug ind, pattern[1].repr, " = "
       nodeVisiting(matchedExpr, pattern[2], depth + 1)
 
     elif pattern.kind == nnkPar:
       # parens are just for ast generation. No special semantic meaning
       # after the tree has been constructed.
-      echo pattern.lispRepr
+      debug pattern.lispRepr
       pattern.expectLen 1
       nodeVisiting(astSym, pattern[0], depth)
 
     else:
-      echo ">>>> ", ind, pattern.repr, " <<<< WARNING: unhandled!!! "
+      debug ">>>> ", ind, pattern.repr, " <<<< WARNING: unhandled!!! "
 
   nodeVisiting(astSym, pattern, depth)
 
-macro matchAst(ast: NimNode; args: varargs[untyped]): untyped =
+macro matchAst*(ast: NimNode; args: varargs[untyped]): untyped =
   let beginBranches = if args[0].kind == nnkIdent: 1 else: 0
   let endBranches   = if args[^1].kind == nnkElse: args.len - 1 else: args.len
   for i in beginBranches ..< endBranches:
@@ -292,55 +312,55 @@ macro matchAst(ast: NimNode; args: varargs[untyped]): untyped =
     block `outerBlockLabel`:
       `outerStmtList`
 
-  echo result.repr
+  debug result.repr
 
 ################################################################################
 ################################# Example Code #################################
 ################################################################################
 
 
-static:
-  let mykinds = {nnkIdent, nnkCall}
-
-  echo myKinds
+when isMainModule:
 
 
+  static:
+    let mykinds = {nnkIdent, nnkCall}
 
+    echo myKinds
 
-dumpTree:
-  (var x: int; x += 1; x)
-  (StmtList | StmtListExpr | StmtExpr)(
-    foo @ Ident,
-    Empty
-  )
-
-macro foo(arg: untyped): untyped =
-  matchAst(arg, matchError):
-  of nnkStmtList(nnkIdent, nnkIdent, nnkIdent):
-    echo(88*88+33*33)
-  of nnkStmtList(
-    _(
-      nnkIdentDefs(
-        nnkIdent("a"),
-        nnkEmpty, nnkIntLit(123)
-      )
-    ),
-    _,
-    nnkForStmt(
-      nnkIdent("i"),
-      nnkInfix,
-      `mysym` @ nnkStmtList
+  dumpTree:
+    (var x: int; x += 1; x)
+    (StmtList | StmtListExpr | StmtExpr)(
+      foo @ Ident,
+      Empty
     )
-  ):
-    echo "The AST did match!!!"
-    echo "The matched sub tree is the following:"
-    echo mysym.lispRepr
-  else:
-    echo matchError
-    echo "sadly the AST did not match :("
 
-foo:
-  let a = 123
-  let b = 342
-  for i in a ..< b:
-    echo "Hallo", i
+  macro foo(arg: untyped): untyped =
+    matchAst(arg, matchError):
+    of nnkStmtList(nnkIdent, nnkIdent, nnkIdent):
+      echo(88*88+33*33)
+    of nnkStmtList(
+      _(
+        nnkIdentDefs(
+          nnkIdent("a"),
+          nnkEmpty, nnkIntLit(123)
+        )
+      ),
+      _,
+      nnkForStmt(
+        nnkIdent("i"),
+        nnkInfix,
+        `mysym` @ nnkStmtList
+      )
+    ):
+      echo "The AST did match!!!"
+      echo "The matched sub tree is the following:"
+      echo mysym.lispRepr
+    else:
+      echo matchError
+      echo "sadly the AST did not match :("
+
+  foo:
+    let a = 123
+    let b = 342
+    for i in a ..< b:
+      echo "Hallo", i
