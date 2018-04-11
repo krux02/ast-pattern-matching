@@ -141,10 +141,10 @@ proc matchValue[T](arg: NimNode; value: pointer): MatchingError =
   arg.expectKind nnkNilLit
 
 static:
-  var literals: array[19, string]
+  var literals: array[19, NimNode]
   var i = 0
   for litKind in nnkLiterals:
-    literals[i] = ($litKind)[3..^1]
+    literals[i] = ident($litKind)
     i += 1
 
   var nameToKind = newTable[string, NimNodeKind]()
@@ -162,42 +162,47 @@ proc nodevisiting(astSym: NimNode, pattern: NimNode, depth: int, blockLabel, err
 
   proc handleIdent(ident: NimNode): void =
     if not ident.eqIdent("_"):
-      let kindLit = ident("nnk" & $ident)
-      genMatchLogic(bindSym"matchKind", kindLit)
+      genMatchLogic(bindSym"matchKind", ident)
 
   # generate recursively a matching expression
   if pattern.kind in {nnkCall, nnkCommand}:
     # TODO: pattern[0] could be nnkPar with branching!
-    pattern[0].expectKind nnkIdent
-    if pattern[0].eqIdent "Ident":
-      echo ind, "Ident(", pattern[1].repr, ")"
-      let identStr =
-        if pattern[1].kind == nnkStrLit:
-          pattern[1].strVal
-        else:
-          pattern[1][0].expectIdent "ident"
-          pattern[1][1].strVal
-      genMatchLogic(bindSym"matchIdent", newLit(identStr))
+    if pattern[0].kind == nnkIdent:
+      if pattern[0].eqIdent "nnkIdent":
+        echo ind, "Ident(", pattern[1].repr, ")"
+        let identStr =
+          if pattern[1].kind == nnkStrLit:
+            pattern[1].strVal
+          else:
+            pattern[1][0].expectIdent "ident"
+            pattern[1][1].strVal
+        genMatchLogic(bindSym"matchIdent", newLit(identStr))
 
-    elif $pattern[0] in literals:
-      echo ind, "newLit(", pattern[1].repr, ")"
-      genMatchLogic(bindSym"matchValue", pattern[1])
+      elif pattern[0] in literals:
+        echo ind, "newLit(", pattern[1].repr, ")"
+        genMatchLogic(bindSym"matchValue", pattern[1])
+
+      else:
+        echo ind, pattern[0], "("
+        handleIdent(pattern[0])
+
+        if pattern[0].len > 0:
+          let lengthLit = newLit(pattern[0].len - 1)
+          genMatchLogic(bindSym"matchLen", lengthLit)
+
+        for i in 1 ..< pattern.len:
+          let childSym = genSym(nskLet)
+          let indexLit = newLit(i - 1)
+          result.add quote do:
+            let `childSym` = `astSym`[`indexLit`]
+          nodeVisiting(childSym, pattern[i], depth + 1, blockLabel, errorSym, result)
+        echo ind, ")"
+
+    elif pattern[0].kind == nnkPar and pattern[0].len == 0 and pattern[0].kind == nnkIdent:
+      handleIdent(pattern[0][0])
 
     else:
-      echo ind, pattern[0], "("
-      handleIdent(pattern[0])
-
-      if pattern[0].len > 0:
-        let lengthLit = newLit(pattern[0].len - 1)
-        genMatchLogic(bindSym"matchLen", lengthLit)
-
-      for i in 1 ..< pattern.len:
-        let childSym = genSym(nskLet)
-        let indexLit = newLit(i - 1)
-        result.add quote do:
-          let `childSym` = `astSym`[`indexLit`]
-        nodeVisiting(childSym, pattern[i], depth + 1, blockLabel, errorSym, result)
-      echo ind, ")"
+      echo ">>>> ", ind, pattern.lispRepr, " <<<< WARNING: unhandled!!! "
 
   elif pattern.kind == nnkAccQuoted:
     echo ind, pattern.repr
@@ -300,20 +305,20 @@ macro foo(arg: untyped): untyped =
   echo arg.treeRepr
 
   matchAst(arg, matchError):
-  of StmtList(Ident,Ident,Ident):
+  of nnkStmtList(nnkIdent, nnkIdent, nnkIdent):
     echo(88*88+33*33)
-  of StmtList(
+  of nnkStmtList(
     _(
-      IdentDefs(
-        Ident(ident"a"),
-        Empty, IntLit(123)
+      nnkIdentDefs(
+        nnkIdent("a"),
+        nnkEmpty, nnkIntLit(123)
       )
     ),
     _,
-    ForStmt(
-      (Ident)(ident"i"),
-      Infix,
-      `mysym` @ StmtList
+    nnkForStmt(
+      (nnkIdent)("i"),
+      nnkInfix,
+      `mysym` @ nnkStmtList
     )
   ):
     echo "The AST did match!!!"
