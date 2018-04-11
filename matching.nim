@@ -151,91 +151,95 @@ static:
   for kind in NimNodeKind:
     nameToKind[ ($kind)[3..^1] ] = kind
 
-proc nodevisiting(astSym: NimNode, pattern: NimNode, depth: int, blockLabel, errorSym, result: NimNode): void =
-  let ind = "  ".repeat(depth) # indentation
+proc generateMatchingCode(astSym: NimNode, pattern: NimNode, depth: int, blockLabel, errorSym, result: NimNode): void =
 
-  proc genMatchLogic(matchProc, argumentSym: NimNode): void =
-    result.add quote do:
-      `errorSym` = `astSym`.`matchProc`(`argumentSym`)
-      if `errorSym`.kind != NoError:
-        break `blockLabel`
+  proc nodeVisiting(astSym: NimNode, pattern: NimNode, depth: int): void =
+    let ind = "  ".repeat(depth) # indentation
 
-  proc handleIdent(ident: NimNode): void =
-    if not ident.eqIdent("_"):
-      genMatchLogic(bindSym"matchKind", ident)
+    proc genMatchLogic(matchProc, argumentSym: NimNode): void =
+      result.add quote do:
+        `errorSym` = `astSym`.`matchProc`(`argumentSym`)
+        if `errorSym`.kind != NoError:
+          break `blockLabel`
 
-  # generate recursively a matching expression
-  if pattern.kind in {nnkCall, nnkCommand}:
-    # TODO: pattern[0] could be nnkPar with branching!
-    if pattern[0].kind == nnkIdent:
-      if pattern[0].eqIdent "nnkIdent":
-        echo ind, "Ident(", pattern[1].repr, ")"
-        let identStr =
-          if pattern[1].kind == nnkStrLit:
-            pattern[1].strVal
-          else:
-            pattern[1][0].expectIdent "ident"
-            pattern[1][1].strVal
-        genMatchLogic(bindSym"matchIdent", newLit(identStr))
+    proc handleIdent(ident: NimNode): void =
+      if not ident.eqIdent("_"):
+        genMatchLogic(bindSym"matchKind", ident)
 
-      elif pattern[0] in literals:
-        echo ind, "newLit(", pattern[1].repr, ")"
-        genMatchLogic(bindSym"matchValue", pattern[1])
+    # generate recursively a matching expression
+    if pattern.kind in {nnkCall, nnkCommand}:
+      # TODO: pattern[0] could be nnkPar with branching!
+      if pattern[0].kind == nnkIdent:
+        if pattern[0].eqIdent "nnkIdent":
+          echo ind, "Ident(", pattern[1].repr, ")"
+          let identStr =
+            if pattern[1].kind == nnkStrLit:
+              pattern[1].strVal
+            else:
+              pattern[1][0].expectIdent "ident"
+              pattern[1][1].strVal
+          genMatchLogic(bindSym"matchIdent", newLit(identStr))
+
+        elif pattern[0] in literals:
+          echo ind, "newLit(", pattern[1].repr, ")"
+          genMatchLogic(bindSym"matchValue", pattern[1])
+
+        else:
+          echo ind, pattern[0], "("
+          handleIdent(pattern[0])
+
+          if pattern[0].len > 0:
+            let lengthLit = newLit(pattern[0].len - 1)
+            genMatchLogic(bindSym"matchLen", lengthLit)
+
+          for i in 1 ..< pattern.len:
+            let childSym = genSym(nskLet)
+            let indexLit = newLit(i - 1)
+            result.add quote do:
+              let `childSym` = `astSym`[`indexLit`]
+            nodeVisiting(childSym, pattern[i], depth + 1)
+          echo ind, ")"
+
+      elif pattern[0].kind == nnkPar and pattern[0].len == 0 and pattern[0].kind == nnkIdent:
+        handleIdent(pattern[0][0])
 
       else:
-        echo ind, pattern[0], "("
-        handleIdent(pattern[0])
+        echo ">>>> ", ind, pattern.lispRepr, " <<<< WARNING: unhandled!!! "
 
-        if pattern[0].len > 0:
-          let lengthLit = newLit(pattern[0].len - 1)
-          genMatchLogic(bindSym"matchLen", lengthLit)
+    elif pattern.kind == nnkAccQuoted:
+      echo ind, pattern.repr
+      let matchedExpr = pattern[0]
+      matchedExpr.expectKind nnkIdent
+      result.add quote do:
+        let `matchedExpr` = `astSym`
 
-        for i in 1 ..< pattern.len:
-          let childSym = genSym(nskLet)
-          let indexLit = newLit(i - 1)
-          result.add quote do:
-            let `childSym` = `astSym`[`indexLit`]
-          nodeVisiting(childSym, pattern[i], depth + 1, blockLabel, errorSym, result)
-        echo ind, ")"
+    elif pattern.kind == nnkIdent:
+      echo ind, pattern.repr
+      handleIdent(pattern)
 
-    elif pattern[0].kind == nnkPar and pattern[0].len == 0 and pattern[0].kind == nnkIdent:
-      handleIdent(pattern[0][0])
+    elif pattern.kind == nnkInfix:
+      pattern[0].expectIdent("@")
+      pattern[1].expectKind nnkAccQuoted
+
+      let matchedExpr = pattern[1][0]
+      matchedExpr.expectKind nnkIdent
+      result.add quote do:
+        let `matchedExpr` = `astSym`
+
+      echo ind, pattern[1].repr, " = "
+      nodeVisiting(matchedExpr, pattern[2], depth + 1)
+
+    elif pattern.kind == nnkPar:
+      # parens are just for ast generation. No special semantic meaning
+      # after the tree has been constructed.
+      echo pattern.lispRepr
+      pattern.expectLen 1
+      nodeVisiting(astSym, pattern[0], depth)
 
     else:
-      echo ">>>> ", ind, pattern.lispRepr, " <<<< WARNING: unhandled!!! "
+      echo ">>>> ", ind, pattern.repr, " <<<< WARNING: unhandled!!! "
 
-  elif pattern.kind == nnkAccQuoted:
-    echo ind, pattern.repr
-    let matchedExpr = pattern[0]
-    matchedExpr.expectKind nnkIdent
-    result.add quote do:
-      let `matchedExpr` = `astSym`
-
-  elif pattern.kind == nnkIdent:
-    echo ind, pattern.repr
-    handleIdent(pattern)
-
-  elif pattern.kind == nnkInfix:
-    pattern[0].expectIdent("@")
-    pattern[1].expectKind nnkAccQuoted
-
-    let matchedExpr = pattern[1][0]
-    matchedExpr.expectKind nnkIdent
-    result.add quote do:
-      let `matchedExpr` = `astSym`
-
-    echo ind, pattern[1].repr, " = "
-    nodeVisiting(matchedExpr, pattern[2], depth + 1, blockLabel, errorSym, result)
-
-  elif pattern.kind == nnkPar:
-    # parens are just for ast generation. No special semantic meaning
-    # after the tree has been constructed.
-    echo pattern.lispRepr
-    pattern.expectLen 1
-    nodeVisiting(astSym, pattern[0], depth, blockLabel, errorSym, result)
-
-  else:
-    echo ">>>> ", ind, pattern.repr, " <<<< WARNING: unhandled!!! "
+  nodeVisiting(astSym, pattern, depth)
 
 macro matchAst(ast: NimNode; args: varargs[untyped]): untyped =
   let beginBranches = if args[0].kind == nnkIdent: 1 else: 0
@@ -271,7 +275,7 @@ macro matchAst(ast: NimNode; args: varargs[untyped]): untyped =
     let blockLabel = genSym(nskLabel, "matchingBranch")
     let errorSym = genSym(nskVar, "branchError")
     errorSymbols.add errorSym
-    nodevisiting(ast, pattern, 0, blockLabel, errorSym, stmtList)
+    generateMatchingCode(ast, pattern, 0, blockLabel, errorSym, stmtList)
     stmtList.add code
     stmtList.add nnkBreakStmt.newTree(outerBlockLabel)
 
@@ -294,6 +298,15 @@ macro matchAst(ast: NimNode; args: varargs[untyped]): untyped =
 ################################# Example Code #################################
 ################################################################################
 
+
+static:
+  let mykinds = {nnkIdent, nnkCall}
+
+  echo myKinds
+
+
+
+
 dumpTree:
   (var x: int; x += 1; x)
   (StmtList | StmtListExpr | StmtExpr)(
@@ -302,8 +315,6 @@ dumpTree:
   )
 
 macro foo(arg: untyped): untyped =
-  echo arg.treeRepr
-
   matchAst(arg, matchError):
   of nnkStmtList(nnkIdent, nnkIdent, nnkIdent):
     echo(88*88+33*33)
@@ -316,7 +327,7 @@ macro foo(arg: untyped): untyped =
     ),
     _,
     nnkForStmt(
-      (nnkIdent)("i"),
+      nnkIdent("i"),
       nnkInfix,
       `mysym` @ nnkStmtList
     )
