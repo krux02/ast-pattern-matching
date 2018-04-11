@@ -39,3 +39,6 @@ constructs, to winden the possibilities of the pattern.
     handling.
   * ``else:`` the else branch is the code path that is taken when the
     pattern fails to match.
+
+  * ``nnkStmtList`` matches any statement list, it just checks the
+    kind, but ``nnkStmtList()`` matches only an empty node.
