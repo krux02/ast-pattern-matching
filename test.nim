@@ -103,8 +103,10 @@ static:
 
   block:
 
-    let ast = quote do:
+    template foobar(): untyped {.dirty.} =
       `+`(3, 4)
+
+    let ast: NimNode = getAst foobar()
 
     ast.matchAst:
     of nnkCall(
@@ -306,11 +308,11 @@ static:
     let ast = quote do:
       [1, 2, 3]
 
-  ast.matchAst:
-  of nnkBracket(nnkIntLit(1), nnkIntLit(2), nnkIntLit(3)):
-    echo "ok"
-  else:
-    echo "fail"
+    ast.matchAst:
+    of nnkBracket(nnkIntLit(1), nnkIntLit(2), nnkIntLit(3)):
+      echo "ok"
+    else:
+      echo "fail"
 
 
   ## Ranges
@@ -340,9 +342,9 @@ static:
 
     ast.matchAst:
     of nnkIfExpr(
-      nnkElifExpr(cond1, expr1),
-      nnkElifExpr(cond2, expr2),
-      nnkElseExpr(expr3)
+      nnkElifExpr(`cond1`, `expr1`),
+      nnkElifExpr(`cond2`, `expr2`),
+      nnkElseExpr(`expr3`)
     ):
       echo "ok"
     else:
@@ -419,10 +421,10 @@ static:
 
     ast.matchAst:
     of nnkIfStmt(
-      nnkElifBranch(cond1, stmt1),
-      nnkElifBranch(cond2, stmt2),
-      nnkElifBranch(cond3, stmt3),
-      nnkElse(stmt4)
+      nnkElifBranch(`cond1`, `stmt1`),
+      nnkElifBranch(`cond2`, `stmt2`),
+      nnkElifBranch(`cond3`, `stmt3`),
+      nnkElse(`stmt4`)
     ):
       echo "ok"
     else:
@@ -475,11 +477,11 @@ static:
 
     ast.matchAst:
     of nnkCaseStmt(
-      expr1,
-      nnkOfBranch(expr2, nnkRange(expr3, expr4), stmt1),
-      nnkOfBranch(expr5, stmt2),
-      nnkElifBranch(cond1, stmt3),
-      nnkElse(stmt4)
+      `expr1`,
+      nnkOfBranch(`expr2`, nnkRange(`expr3`, `expr4`), `stmt1`),
+      nnkOfBranch(`expr5`, `stmt2`),
+      nnkElifBranch(`cond1`, `stmt3`),
+      nnkElse(`stmt4`)
     ):
       echo "ok"
     else:
@@ -494,7 +496,7 @@ static:
         stmt1
 
     ast.matchAst:
-    of nnkWhileStmt(expr1, stmt1):
+    of nnkWhileStmt(`expr1`, `stmt1`):
       echo "ok"
     else:
       echo "fail"
@@ -508,11 +510,11 @@ static:
       for ident1, ident2 in expr1:
         stmt1
 
-  ast.matchAst:
-  of nnkForStmt(ident1, ident2, expr1, stmt1):
-    echo "ok"
-  else:
-    echo "fail"
+    ast.matchAst:
+    of nnkForStmt(`ident1`, `ident2`, `expr1`, `stmt1`):
+      echo "ok"
+    else:
+      echo "fail"
 
 
   ## Try statement
@@ -533,11 +535,11 @@ static:
 
     ast.matchAst:
     of nnkTryStmt(
-      stmt1,
-      nnkExceptBranch(e1, e2, stmt2),
-      nnkExceptBranch(e3, stmt3),
-      nnkExceptBranch(stmt4),
-      nnkFinally(stmt5)
+      `stmt1`,
+      nnkExceptBranch(`e1`, `e2`, `stmt2`),
+      nnkExceptBranch(`e3`, `stmt3`),
+      nnkExceptBranch(`stmt4`),
+      nnkFinally(`stmt5`)
     ):
       echo "ok"
     else:
@@ -992,16 +994,20 @@ static:
 
   ## Bind statement
 
+
   block:
+    proc foobar(): void =
+      discard
 
     let ast = quote do:
-      bind x
+      bind foobar
 
     ast.matchAst:
-    of nnkBindStmt(nnkIdent("x")):
+    of `node` @ nnkBindStmt(nnkIdent("foobar")):
+      echo node.lispRepr
       echo "ok"
     else:
-      echo "fail"
+      echo "fail xxx"
 
   ## Procedure declaration
 
@@ -1013,14 +1019,15 @@ static:
     ast.matchAst:
     of nnkProcDef(
       nnkPostfix(nnkIdent("*"), nnkIdent("hello")), # the exported proc name
-      nnkEmpty(), # patterns for term rewriting in templates and macros (not procs)
+      nnkEmpty, # patterns for term rewriting in templates and macros (not procs)
       nnkGenericParams( # generic type parameters, like with type declaration
         nnkIdentDefs(
-          nnkIdent("T"), nnkIdent("SomeInteger")
+          nnkIdent("T"),
+          nnkIdent("SomeInteger")
         )
       ),
       nnkFormalParams(
-        nnkIdent("int"), # the first FormalParam is the return type. nnkEmpty() if there is none
+        nnkIdent("int"), # the first FormalParam is the return type. nnkEmpty if there is none
         nnkIdentDefs(
           nnkIdent("x"),
           nnkIdent("int"), # type type (required for procs, not for templates)
@@ -1029,16 +1036,16 @@ static:
         nnkIdentDefs(
           nnkIdent("y"),
           nnkIdent("float32"),
-          nnkEmpty()
+          nnkEmpty
         ),
         nnkPragma(nnkIdent("inline")),
-        nnkEmpty(), # reserved slot for future use
-        nnkStmtList(nnkDiscardStmt(nnkEmpty())) # the meat of the proc
+        nnkEmpty, # reserved slot for future use
+        nnkStmtList(nnkDiscardStmt(nnkEmpty)) # the meat of the proc
       )
     ):
       echo "ok"
     else:
-      echo "fail"
+      echo "fail yyy"
 
   block:
 
@@ -1080,7 +1087,8 @@ static:
   block:
 
     let ast = quote do:
-      iterator nonsense[T](x: seq[T]): float {.closure.} = ...
+      iterator nonsense[T](x: seq[T]): float {.closure.} =
+        discard
 
     ast.matchAst:
     of nnkIteratorDef(
@@ -1118,8 +1126,8 @@ static:
     of nnkTemplateDef(
       nnkIdent("optOpt"),
       nnkStmtList( # instead of nnkEmpty()
-        expr1
-      ),
+        `expr1`
+      )
       # follows like a proc or iterator
     ):
       echo "ok"

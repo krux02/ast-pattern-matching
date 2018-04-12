@@ -104,7 +104,7 @@ proc `$`(arg: MatchingError): string =
     result.add "\n"
 
 
-proc matchLen(arg: NimNode; len: int): MatchingError {.compileTime.} =
+proc matchLen*(arg: NimNode; len: int): MatchingError {.compileTime.} =
   if arg.len != len:
     result.node = arg
     result.kind = WrongLength
@@ -208,8 +208,8 @@ proc generateMatchingCode(astSym: NimNode, pattern: NimNode, depth: int, blockLa
           debug ind, pattern[0], "("
           handleIdent(pattern[0])
 
-          if pattern[0].len > 0:
-            let lengthLit = newLit(pattern[0].len - 1)
+          if pattern.len > 0:
+            let lengthLit = newLit(pattern.len - 1)
             genMatchLogic(bindSym"matchLen", lengthLit)
 
           for i in 1 ..< pattern.len:
