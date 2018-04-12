@@ -456,6 +456,9 @@ static:
 
     ast.matchAst:
     of nnkStmtList(`stmt1`, `stmt2`, `stmt3`):
+      assert stmt1.strVal == "stmt1"
+      assert stmt2.strVal == "stmt2"
+      assert stmt3.strVal == "stmt3"
       echo "ok"
     else:
       echo "fail"
@@ -996,18 +999,24 @@ static:
 
 
   block:
-    proc foobar(): void =
-      discard
+    macro foobar(arg: untyped): untyped =
+      echo arg.lispRepr
 
-    let ast = quote do:
-      bind foobar
+    foobar:
+      bind x
+
+    template foobar(): untyped {.dirty.} =
+      bind x
+
+    let ast = getAst(foobar())
 
     ast.matchAst:
-    of `node` @ nnkBindStmt(nnkIdent("foobar")):
+    of `node` @ nnkBindStmt(nnkIdent("x")):
       echo node.lispRepr
       echo "ok"
     else:
-      echo "fail xxx"
+      echo ast.lispRepr
+      error("fail", ast)
 
   ## Procedure declaration
 
