@@ -10,14 +10,12 @@ import macros, strutils, tables
 
 export macros
 
-
 when isMainModule:
   template debug(args: varargs[untyped]): untyped =
     echo args
 else:
   template debug(args: varargs[untyped]): untyped =
     discard
-
 
 type SomeFloat = float | float32 | float64
 

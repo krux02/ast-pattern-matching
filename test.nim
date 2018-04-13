@@ -10,7 +10,7 @@ static:
     of `pattern`:
       echo "ok"
     else:
-      echo "fail"
+      error "fail", ast
 
   testPattern nnkIntLit(42)            , 42
   testPattern nnkInt8Lit(42)           , 42'i8
@@ -46,7 +46,7 @@ static:
     ):
       echo "ok"
     else:
-      echo "fail"
+      error "fail", ast
 
   ## Call with ``()``
 
@@ -62,7 +62,7 @@ static:
     ):
       echo "ok"
     else:
-      echo "fail"
+      error "fail", ast
 
 
   ## Infix operator call
@@ -80,7 +80,7 @@ static:
     ):
       echo "ok"
     else:
-      echo "fail"
+      error "fail", ast
 
   block:
 
@@ -127,14 +127,16 @@ static:
     let ast = quote do:
       ? "xyz"
 
-    ast.matchAst:
+    ast.matchAst(err):
     of nnkPrefix(
       nnkIdent("?"),
-      nnkStrLit("abc")
+      nnkStrLit("xyz")
     ):
       echo "ok"
     else:
-      echo "fail"
+      echo ast.lispRepr
+      echo err
+      error "fail", ast
 
 
   ## Postfix operator call
@@ -144,14 +146,17 @@ static:
     let ast = quote do:
       proc identifier*
 
-    ast.matchAst:
+    ast[0].matchAst(err):
     of nnkPostfix(
       nnkIdent("*"),
       nnkIdent("identifier")
     ):
       echo "ok"
     else:
-      echo "fail"
+
+      echo ast.lispRepr
+      echo err[0]
+      error "fail", ast
 
 
   ## Call with named arguments
@@ -172,7 +177,7 @@ static:
     ):
       echo "ok"
     else:
-      echo "fail"
+      error "fail", ast
 
   ## Call with raw string literal
 
@@ -181,14 +186,16 @@ static:
     let ast = quote do:
       echo"abc"
 
-    ast.matchAst:
+    ast.matchAst(err):
     of nnkCallStrLit(
       nnkIdent("echo"),
-      nnkRStrLit("hello")
+      nnkRStrLit("abc")
     ):
       echo "ok"
     else:
-      echo "fail"
+      echo ast.lispRepr
+      echo err
+      error "fail", ast
 
   ## Dereference operator ``[]``
 
@@ -197,11 +204,13 @@ static:
     let ast = quote do:
       x[]
 
-    ast.matchAst:
+    ast.matchAst(err):
     of nnkDerefExpr(nnkIdent("x")):
       echo "ok"
     else:
-      echo "fail"
+      echo ast.lispRepr
+      echo err
+      error "fail", ast
 
 
   ## Addr operator
@@ -215,7 +224,7 @@ static:
     of nnkAddr(nnkIdent("x")):
       echo "ok"
     else:
-      echo "fail"
+      error "fail", ast
 
 
   ## Cast operator
@@ -229,7 +238,7 @@ static:
     of nnkCast(nnkIdent("T"), nnkIdent("x")):
       echo "ok"
     else:
-      echo "fail"
+      error "fail", ast
 
 
   ## Object access operator ``.``
@@ -243,7 +252,7 @@ static:
     of nnkDotExpr(nnkIdent("x"), nnkIdent("y")):
       echo "ok"
     else:
-      echo "fail"
+      error "fail", ast
 
   ## Array access operator ``[]``
 
@@ -256,7 +265,7 @@ static:
     of nnkBracketExpr(nnkIdent("x"), nnkIdent("y")):
       echo "ok"
     else:
-      echo "fail"
+      error "fail", ast
 
 
   ## Parentheses
@@ -270,7 +279,7 @@ static:
     of nnkPar(nnkIntLit(1), nnkIntLit(2), nnkPar(nnkIntLit(3))):
       echo "ok"
     else:
-      echo "fail"
+      error "fail", ast
 
 
   ## Curly braces
@@ -284,7 +293,7 @@ static:
     of nnkCurly(nnkIntLit(1), nnkIntLit(2), nnkIntLit(3)):
       echo "ok"
     else:
-      echo "fail"
+      error "fail", ast
 
   block:
 
@@ -298,7 +307,7 @@ static:
     ):
       echo "ok"
     else:
-      echo "fail"
+      error "fail", ast
 
 
   ## Brackets
@@ -312,7 +321,7 @@ static:
     of nnkBracket(nnkIntLit(1), nnkIntLit(2), nnkIntLit(3)):
       echo "ok"
     else:
-      echo "fail"
+      error "fail", ast
 
 
   ## Ranges
@@ -330,7 +339,7 @@ static:
     ):
       echo "ok"
     else:
-      echo "fail"
+      error "fail", ast
 
 
   ## If expression
@@ -348,7 +357,7 @@ static:
     ):
       echo "ok"
     else:
-      echo "fail"
+      error "fail", ast
 
   ## Documentation Comments
 
@@ -368,7 +377,7 @@ static:
     ):
       echo "ok"
     else:
-      echo "fail"
+      error "fail", ast
 
   ## Pragmas
 
@@ -386,7 +395,7 @@ static:
     ):
       echo "ok"
     else:
-      echo "fail"
+      error "fail", ast
 
   block:
 
@@ -403,7 +412,7 @@ static:
     ):
       echo "ok"
     else:
-      echo "fail"
+      error "fail", ast
 
   ## If statement
 
@@ -428,7 +437,7 @@ static:
     ):
       echo "ok"
     else:
-      echo "fail"
+      error "fail", ast
 
 
   ## Assignment
@@ -442,7 +451,7 @@ static:
     of nnkAsgn(nnkIdent("x"), nnkIntLit(42)):
       echo "ok"
     else:
-      echo "fail"
+      error "fail", ast
 
 
   ## Statement list
@@ -461,7 +470,7 @@ static:
       assert stmt3.strVal == "stmt3"
       echo "ok"
     else:
-      echo "fail"
+      error "fail", ast
 
   ## Case statement
 
@@ -488,7 +497,7 @@ static:
     ):
       echo "ok"
     else:
-      echo "fail"
+      error "fail", ast
 
   ## While statement
 
@@ -502,7 +511,7 @@ static:
     of nnkWhileStmt(`expr1`, `stmt1`):
       echo "ok"
     else:
-      echo "fail"
+      error "fail", ast
 
 
   ## For statement
@@ -517,7 +526,7 @@ static:
     of nnkForStmt(`ident1`, `ident2`, `expr1`, `stmt1`):
       echo "ok"
     else:
-      echo "fail"
+      error "fail", ast
 
 
   ## Try statement
@@ -546,7 +555,7 @@ static:
     ):
       echo "ok"
     else:
-      echo "fail"
+      error "fail", ast
 
 
   ## Return statement
@@ -560,7 +569,7 @@ static:
     of nnkReturnStmt(`expr1`):
       echo "ok"
     else:
-      echo "fail"
+      error "fail", ast
 
 
   ## Continue statement
@@ -574,7 +583,7 @@ static:
     of nnkContinueStmt():
       echo "ok"
     else:
-      echo "fail"
+      error "fail", ast
 
   ## Break statement
 
@@ -587,7 +596,7 @@ static:
     of nnkBreakStmt(nnkIdent("otherLocation")):
       echo "ok"
     else:
-      echo "fail"
+      error "fail", ast
 
   ## Block statement
 
@@ -601,7 +610,7 @@ static:
     of nnkBlockStmt(nnkIdent("name"), nnkStmtList):
       echo "ok"
     else:
-      echo "fail"
+      error "fail", ast
 
   ## Asm statement
 
@@ -619,7 +628,7 @@ static:
     ):
       echo "ok"
     else:
-      echo "fail"
+      error "fail", ast
 
   ## Import section
 
@@ -632,7 +641,7 @@ static:
     of nnkImportStmt(nnkIdent("math")):
       echo "ok":
     else:
-      echo "fail"
+      error "fail", ast
 
   block:
 
@@ -643,7 +652,7 @@ static:
     of nnkImportExceptStmt(nnkIdent("math"),nnkIdent("pow")):
       echo "ok"
     else:
-      echo "fail"
+      error "fail", ast
 
   block:
 
@@ -660,7 +669,7 @@ static:
     ):
       echo "ok"
     else:
-      echo "fail"
+      error "fail", ast
 
   ## From statement
 
@@ -673,7 +682,7 @@ static:
     of nnkFromStmt(nnkIdent("math"), nnkIdent("pow")):
       echo "ok"
     else:
-      echo "fail"
+      error "fail", ast
 
   ## Export statement
 
@@ -686,7 +695,7 @@ static:
     of nnkExportStmt(nnkIdent("unsigned")):
       echo "ok"
     else:
-      echo "fail"
+      error "fail", ast
 
   block:
 
@@ -697,7 +706,7 @@ static:
     of nnkExportExceptStmt(nnkIdent("math"),nnkIdent("pow")):
       echo "ok"
     else:
-      echo "fail"
+      error "fail", ast
 
   ## Include statement
 
@@ -710,7 +719,7 @@ static:
     of nnkIncludeStmt(nnkIdent("blocks")):
       echo "ok"
     else:
-      echo "fail"
+      error "fail", ast
 
   ## Var section
 
@@ -729,7 +738,7 @@ static:
     ):
       echo "ok"
     else:
-      echo "fail"
+      error "fail", ast
 
   ## Let section
 
@@ -748,7 +757,7 @@ static:
     ):
       echo "ok"
     else:
-      echo "fail"
+      error "fail", ast
 
   ## Const section
 
@@ -767,7 +776,7 @@ static:
     ):
       echo "ok"
     else:
-      echo "fail"
+      error "fail", ast
 
   ## Type section
 
@@ -786,7 +795,7 @@ static:
     ):
       echo "ok"
     else:
-      echo "fail"
+      error "fail", ast
 
   block:
 
@@ -804,7 +813,7 @@ static:
     ):
       echo "ok"
     else:
-      echo "fail"
+      error "fail", ast
 
   block:
 
@@ -828,7 +837,7 @@ static:
     ):
       echo "ok"
     else:
-      echo "fail"
+      error "fail", ast
 
   block:
 
@@ -849,7 +858,7 @@ static:
     ):
       echo "ok"
     else:
-      echo "fail"
+      error "fail", ast
 
   block:
 
@@ -913,7 +922,7 @@ static:
     ):
       echo "ok"
     else:
-      echo "fail"
+      error "fail", ast
 
 
   block:
@@ -929,7 +938,7 @@ static:
     ):
       echo "ok"
     else:
-      echo "fail"
+      error "fail", ast
 
   block:
 
@@ -946,7 +955,7 @@ static:
     ):
       echo "ok"
     else:
-      echo "fail"
+      error "fail", ast
 
   block:
 
@@ -964,7 +973,7 @@ static:
     ):
       echo "ok"
     else:
-      echo "fail"
+      error "fail", ast
 
   block:
     let ast = quote do:
@@ -980,7 +989,7 @@ static:
     ):
       echo "ok"
     else:
-      echo "fail"
+      error "fail", ast
 
   ## Mixin statement
 
@@ -993,30 +1002,21 @@ static:
     of nnkMixinStmt(nnkIdent("x")):
       echo "ok"
     else:
-      echo "fail"
+      error "fail", ast
 
   ## Bind statement
 
 
-  block:
-    macro foobar(arg: untyped): untyped =
-      echo arg.lispRepr
-
-    foobar:
-      bind x
-
-    template foobar(): untyped {.dirty.} =
-      bind x
-
-    let ast = getAst(foobar())
-
-    ast.matchAst:
+  macro testBindStmt(ast: untyped): untyped =
+    ast[0].matchAst:
     of `node` @ nnkBindStmt(nnkIdent("x")):
-      echo node.lispRepr
       echo "ok"
     else:
       echo ast.lispRepr
       error("fail", ast)
+
+  testBindStmt:
+    bind x
 
   ## Procedure declaration
 
@@ -1073,7 +1073,7 @@ static:
     ):
       echo "ok"
     else:
-      echo "fail"
+      error "fail", ast
     # ...
 
   block:
@@ -1089,7 +1089,7 @@ static:
     ):
       echo "ok"
     else:
-      echo "fail"
+      error "fail", ast
 
   ## Iterator declaration
 
@@ -1107,7 +1107,7 @@ static:
     ):
       echo "ok"
     else:
-      echo "fail"
+      error "fail", ast
 
   ## Converter declaration
 
@@ -1123,7 +1123,7 @@ static:
     ):
       echo "ok"
     else:
-      echo "fail"
+      error "fail", ast
 
   ## Template declaration
 
@@ -1141,4 +1141,4 @@ static:
     ):
       echo "ok"
     else:
-      echo "fail"
+      error "fail", ast
