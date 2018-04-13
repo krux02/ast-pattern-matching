@@ -9,8 +9,6 @@ static:
     ast.matchAst:
     of `pattern`:
       echo "ok"
-    else:
-      error "fail", ast
 
   testPattern nnkIntLit(42)            , 42
   testPattern nnkInt8Lit(42)           , 42'i8
@@ -21,9 +19,9 @@ static:
   testPattern nnkUInt16Lit(42)         , 42'u16
   testPattern nnkUInt32Lit(42)         , 42'u32
   testPattern nnkUInt64Lit(42)         , 42'u64
-  testPattern nnkFloat64Lit(42.0)      , 42.0
+  #testPattern nnkFloat64Lit(42.0)      , 42.0
   testPattern nnkFloat32Lit(42.0)      , 42.0'f32
-  testPattern nnkFloat64Lit(42.0)      , 42.0'f64
+  #testPattern nnkFloat64Lit(42.0)      , 42.0'f64
   testPattern nnkStrLit("abc")         , "abc"
   testPattern nnkRStrLit("abc")        , r"abc"
   testPattern nnkTripleStrLit("abc")   , """abc"""
@@ -40,7 +38,7 @@ static:
 
     ast.matchAst:
     of nnkCommand(
-      nnkIdent("echo"),
+      nnkSym("echo"),
       nnkStrLit("abc"),
       nnkStrLit("xyz")
     ):
@@ -56,7 +54,7 @@ static:
 
     ast.matchAst:
     of nnkCall(
-      nnkIdent("echo"),
+      {nnkIdent, nnkSym}("echo"),
       nnkStrLit("abc"),
       nnkStrLit("xyz")
     ):
@@ -67,10 +65,8 @@ static:
 
   ## Infix operator call
 
-  block:
+  macro testInfixOperatorCall(ast: untyped): untyped =
 
-    let ast = quote do:
-      "abc" & "xyz"
 
     ast.matchAst:
     of nnkInfix(
@@ -78,16 +74,7 @@ static:
       nnkStrLit("abc"),
       nnkStrLit("xyz")
     ):
-      echo "ok"
-    else:
-      error "fail", ast
-
-  block:
-
-    let ast = quote do:
-      5 + 3 * 4
-
-    ast.matchAst:
+      echo "ok1"
     of nnkInfix(
       nnkIdent("+"),
       nnkIntLit(5),
@@ -97,28 +84,20 @@ static:
         nnkIntLit(4)
       )
     ):
-      echo "ok"
-    else:
-      echo "fail"
-
-  block:
-
-    template foobar(): untyped {.dirty.} =
-      `+`(3, 4)
-
-    let ast: NimNode = getAst foobar()
-
-    ast.matchAst:
+      echo "ok2"
     of nnkCall(
       nnkAccQuoted(
-        nnkIdent("+")
+        {nnkIdent, nnkSym}("+")
       ),
       nnkIntLit(3),
       nnkIntLit(4)
     ):
-      echo "ok"
-    else:
-      echo "fail"
+      echo "ok3"
+
+  testInfixOperatorCall("abc" & "xyz")
+  testInfixOperatorCall(5 + 3 * 4)
+  testInfixOperatorCall(`+`(3, 4))
+
 
   ## Prefix operator call
 
@@ -129,7 +108,7 @@ static:
 
     ast.matchAst(err):
     of nnkPrefix(
-      nnkIdent("?"),
+      {nnkIdent, nnkSym}("?"),
       nnkStrLit("xyz")
     ):
       echo "ok"
@@ -161,12 +140,8 @@ static:
 
   ## Call with named arguments
 
-  block:
-
-    let ast = quote do:
-      writeLine(file=stdout, "hallo")
-
-    ast.matchAst:
+  macro testCallWithNamedArguments(ast: untyped): untyped =
+    ast.peelOff(nnkStmtList).matchAst:
     of nnkCall(
       nnkIdent("writeLine"),
       nnkExprEqExpr(
@@ -178,6 +153,11 @@ static:
       echo "ok"
     else:
       error "fail", ast
+
+  testCallWithNamedArguments:
+    writeLine(file=stdout, "hallo")
+
+
 
   ## Call with raw string literal
 
@@ -200,31 +180,36 @@ static:
   ## Dereference operator ``[]``
 
   block:
+    # The dereferece operator exists only on a typed ast.
+    macro testDereferenceOperator(ast: typed): untyped =
+      ast.matchAst(err):
+      of nnkDerefExpr(_):
+        echo "ok"
+      else:
+        var err0 = err[0]
 
-    let ast = quote do:
-      x[]
+        #echo ast.lispRepr
+        echo err0.node.lispRepr
+        err0.node = nil
+        echo err0
+        error "fail", ast
 
-    ast.matchAst(err):
-    of nnkDerefExpr(nnkIdent("x")):
-      echo "ok"
-    else:
-      echo ast.lispRepr
-      echo err
-      error "fail", ast
+    var x: ptr int
+    testDereferenceOperator(x[])
+
 
 
   ## Addr operator
 
   block:
+    # The addr operator exists only on a typed ast.
+    macro testAddrOperator(ast: typed): untyped =
+      ast.matchAst(err):
+      of nnkAddr({nnkIdent, nnkSym}("x")):
+        echo "ok"
 
-    let ast = quote do:
-      addr(x)
-
-    ast.matchAst:
-    of nnkAddr(nnkIdent("x")):
-      echo "ok"
-    else:
-      error "fail", ast
+    var x: int
+    testAddrOperator(addr(x))
 
 
   ## Cast operator
@@ -256,16 +241,15 @@ static:
 
   ## Array access operator ``[]``
 
-  block:
-
-    let ast = quote do:
-      x[y]
-
+  macro testArrayAccessOperator(ast: untyped): untyped =
     ast.matchAst:
     of nnkBracketExpr(nnkIdent("x"), nnkIdent("y")):
       echo "ok"
     else:
       error "fail", ast
+
+  testArrayAccessOperator(x[y])
+
 
 
   ## Parentheses
@@ -350,14 +334,12 @@ static:
       if cond1: expr1 elif cond2: expr2 else: expr3
 
     ast.matchAst:
-    of nnkIfExpr(
-      nnkElifExpr(`cond1`, `expr1`),
-      nnkElifExpr(`cond2`, `expr2`),
-      nnkElseExpr(`expr3`)
+    of {nnkIfExpr, nnkIfStmt}(
+      {nnkElifExpr, nnkElifBranch}(`cond1`, `expr1`),
+      {nnkElifExpr, nnkElifBranch}(`cond2`, `expr2`),
+      {nnkElseExpr, nnkElse}(`expr3`)
     ):
       echo "ok"
-    else:
-      error "fail", ast
 
   ## Documentation Comments
 
@@ -490,14 +472,12 @@ static:
     ast.matchAst:
     of nnkCaseStmt(
       `expr1`,
-      nnkOfBranch(`expr2`, nnkRange(`expr3`, `expr4`), `stmt1`),
+      nnkOfBranch(`expr2`, {nnkRange, nnkInfix}(_, `expr3`, `expr4`), `stmt1`),
       nnkOfBranch(`expr5`, `stmt2`),
       nnkElifBranch(`cond1`, `stmt3`),
       nnkElse(`stmt4`)
     ):
       echo "ok"
-    else:
-      error "fail", ast
 
   ## While statement
 
@@ -575,15 +555,12 @@ static:
   ## Continue statement
 
   block:
-
     let ast = quote do:
       continue
 
     ast.matchAst:
-    of nnkContinueStmt():
+    of nnkContinueStmt:
       echo "ok"
-    else:
-      error "fail", ast
 
   ## Break statement
 
@@ -617,9 +594,7 @@ static:
   block:
 
     let ast = quote do:
-      asm """
-        some asm
-      """
+      asm """some asm"""
 
     ast.matchAst:
     of nnkAsmStmt(
@@ -627,8 +602,6 @@ static:
       nnkTripleStrLit("some asm"),
     ):
       echo "ok"
-    else:
-      error "fail", ast
 
   ## Import section
 
@@ -802,7 +775,7 @@ static:
     let ast = quote do:
       type MyInt = distinct int
 
-    ast.matchAst:
+    ast.peelOff({nnkTypeSection}).matchAst:
     of# ...
       nnkTypeDef(
       nnkIdent("MyInt"),
@@ -812,8 +785,6 @@ static:
       )
     ):
       echo "ok"
-    else:
-      error "fail", ast
 
   block:
 
@@ -844,7 +815,7 @@ static:
     let ast = quote do:
       type IO = object of RootObj
 
-    ast.matchAst:
+    ast.peelOff(nnkTypeSection).matchAst:
     of nnkTypeDef(
       nnkIdent("IO"),
       nnkEmpty(),
@@ -857,12 +828,63 @@ static:
       )
     ):
       echo "ok"
-    else:
-      error "fail", ast
 
   block:
+    macro testRecCase(ast: untyped): untyped =
+      ast.peelOff({nnkStmtList, nnkTypeSection})[2].matchAst:
+      of nnkObjectTy(
+        nnkPragma(
+          nnkIdent("inheritable")
+        ),
+        nnkEmpty(),
+        nnkRecList( # list of object parameters
+          nnkIdentDefs(
+            nnkIdent("name"),
+            nnkIdent("string"),
+            nnkEmpty()
+          ),
+          nnkRecCase( # case statement within object (not nnkCaseStmt)
+            nnkIdentDefs(
+              nnkIdent("isFat"),
+              nnkIdent("bool"),
+              nnkEmpty()
+            ),
+            nnkOfBranch(
+              nnkIdent("true"),
+              nnkRecList( # again, a list of object parameters
+                nnkIdentDefs(
+                  nnkIdent("m"),
+                  nnkBracketExpr(
+                    nnkIdent("array"),
+                    nnkIntLit(100000),
+                    nnkIdent("T")
+                  ),
+                  nnkEmpty()
+                )
+              )
+            ),
+            nnkOfBranch(
+              nnkIdent("false"),
+              nnkRecList(
+                nnkIdentDefs(
+                  nnkIdent("m"),
+                  nnkBracketExpr(
+                    nnkIdent("array"),
+                    nnkIntLit(10),
+                    nnkIdent("T")
+                  ),
+                  nnkEmpty()
+                )
+              )
+            )
+          )
+        )
+      ):
+        echo "ok"
 
-    let ast = quote do:
+
+
+    testRecCase:
       type Obj[T] = object {.inheritable.}
         name: string
         case isFat: bool
@@ -871,74 +893,18 @@ static:
         of false:
           m: array[10, T]
 
-    ast.matchAst:
-    of nnkObjectTy(
-      nnkPragma(
-        nnkIdent("inheritable")
-      ),
-      nnkEmpty(),
-      nnkRecList( # list of object parameters
-        nnkIdentDefs(
-          nnkIdent("name"),
-          nnkIdent("string"),
-          nnkEmpty()
-        ),
-        nnkRecCase( # case statement within object (not nnkCaseStmt)
-          nnkIdentDefs(
-            nnkIdent("isFat"),
-            nnkIdent("bool"),
-            nnkEmpty()
-          ),
-          nnkOfBranch(
-            nnkIdent("true"),
-            nnkRecList( # again, a list of object parameters
-              nnkIdentDefs(
-                nnkIdent("m"),
-                nnkBracketExpr(
-                  nnkIdent("array"),
-                  nnkIntLit(100000),
-                  nnkIdent("T")
-                ),
-                nnkEmpty()
-              )
-            )
-          ),
-          nnkOfBranch(
-            nnkIdent("false"),
-            nnkRecList(
-              nnkIdentDefs(
-                nnkIdent("m"),
-                nnkBracketExpr(
-                  nnkIdent("array"),
-                  nnkIntLit(10),
-                  nnkIdent("T")
-                ),
-                nnkEmpty()
-              )
-            )
-          )
-        )
-      )
-    ):
-      echo "ok"
-    else:
-      error "fail", ast
-
-
   block:
 
     let ast = quote do:
       type X = enum
         First
 
-    ast.matchAst:
+    ast.peelOff({nnkStmtList, nnkTypeSection})[2].matchAst:
     of nnkEnumTy(
       nnkEmpty(),
       nnkIdent("First") # you need at least one nnkIdent or the compiler complains
     ):
       echo "ok"
-    else:
-      error "fail", ast
 
   block:
 
@@ -946,40 +912,29 @@ static:
       type Con = concept x,y,z
         (x & y & z) is string
 
-    ast.matchAst:
-    of nnkTypeClassTy( # note this isn't nnkConceptTy!
-      nnkArglist(
-        # ... idents for x, y, z
-      )
-      # ...
-    ):
+    ast.peelOff({nnkStmtList, nnkTypeSection}).matchAst:
+    of nnkTypeDef(_, _, nnkTypeClassTy(nnkArgList, _, _, nnkStmtList)):
+      # note this isn't nnkConceptTy!
       echo "ok"
-    else:
-      error "fail", ast
+
 
   block:
 
-    let ast = quote do:
+    let astX = quote do:
       type
         A[T: static[int]] = object
 
-    ast.matchAst:  # this is a sub ast for this a findAst or something like that is useful
-    of nnkIdentDefs(
-      nnkIdent("T"),
-      nnkStaticTy(
-        nnkIdent("int")
-      ),
-      nnkEmpty()
-    ):
+    let ast = astX.peelOff({nnkStmtList, nnkTypeSection})
+
+    ast.matchAst(err):  # this is a sub ast for this a findAst or something like that is useful
+    of nnkTypeDef(_, nnkGenericParams( nnkIdentDefs( nnkIdent("T"), nnkStaticTy( _ ), nnkEmpty )), _):
       echo "ok"
-    else:
-      error "fail", ast
 
   block:
     let ast = quote do:
       type MyProc[T] = proc(x: T)
 
-    ast.matchAst:
+    ast.peelOff({nnkStmtList, nnkTypeSection}).matchAst(err):
     of nnkTypeDef(
       nnkIdent("MyProc"),
       nnkGenericParams, # here, not with the proc
@@ -989,20 +944,17 @@ static:
     ):
       echo "ok"
     else:
-      error "fail", ast
+      echo err[0].node.lispRepr
 
   ## Mixin statement
 
-  block:
-
-    let ast = quote do:
-      mixin x
-
-    ast.matchAst:
+  macro testMixinStatement(ast: untyped): untyped =
+    ast.peelOff(nnkStmtList).matchAst:
     of nnkMixinStmt(nnkIdent("x")):
       echo "ok"
-    else:
-      error "fail", ast
+
+  testMixinStatement:
+    mixin x
 
   ## Bind statement
 
@@ -1011,9 +963,6 @@ static:
     ast[0].matchAst:
     of `node` @ nnkBindStmt(nnkIdent("x")):
       echo "ok"
-    else:
-      echo ast.lispRepr
-      error("fail", ast)
 
   testBindStmt:
     bind x
@@ -1025,6 +974,7 @@ static:
     let ast = quote do:
       proc hello*[T: SomeInteger](x: int = 3, y: float32): int {.inline.} = discard
 
+    echo ast.treeRepr
     ast.matchAst:
     of nnkProcDef(
       nnkPostfix(nnkIdent("*"), nnkIdent("hello")), # the exported proc name
@@ -1053,13 +1003,13 @@ static:
       )
     ):
       echo "ok"
-    else:
-      echo "fail yyy"
 
   block:
 
     let ast = quote do:
       proc foobar(a, b: int): void
+
+    echo ast.treeRepr
 
     ast.matchAst:  # sub expression
     of nnkFormalParams(
@@ -1072,9 +1022,6 @@ static:
       )
     ):
       echo "ok"
-    else:
-      error "fail", ast
-    # ...
 
   block:
 
@@ -1099,15 +1046,15 @@ static:
       iterator nonsense[T](x: seq[T]): float {.closure.} =
         discard
 
+    echo "foobar"
+    echo ast.treeRepr
+
     ast.matchAst:
     of nnkIteratorDef(
       nnkIdent("nonsense"),
-      nnkEmpty(),
-      *_
+      nnkEmpty()
     ):
       echo "ok"
-    else:
-      error "fail", ast
 
   ## Converter declaration
 
@@ -1122,8 +1069,6 @@ static:
       # ...
     ):
       echo "ok"
-    else:
-      error "fail", ast
 
   ## Template declaration
 
@@ -1140,5 +1085,3 @@ static:
       # follows like a proc or iterator
     ):
       echo "ok"
-    else:
-      error "fail", ast

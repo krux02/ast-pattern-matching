@@ -5,10 +5,29 @@
 # TODO use pattern matching block as expression
 # TODO documentation
 # TODO no else branch assignments
+# TODO use min length
+# TODO pattern matching as expression
+# TODO write about error messages
+# TODO update readme
+# TODO make it a nimble package
 
 import macros, strutils, tables
 
 export macros
+
+proc peelOff*(arg: NimNode, kinds: set[NimNodeKind]): NimNode =
+  ## Peel off  nodes of a specific kinds.
+  if arg.len == 1 and arg.kind in kinds:
+    arg[0].peelOff(kinds)
+  else:
+    arg
+
+proc peelOff*(arg: NimNode, kind: NimNodeKind): NimNode =
+  ## Peel off nodes of a specific kind.
+  if arg.len == 1 and arg.kind == kind:
+    arg[0].peelOff(kind)
+  else:
+    arg
 
 when isMainModule:
   template debug(args: varargs[untyped]): untyped =
@@ -18,6 +37,102 @@ else:
     discard
 
 type SomeFloat = float | float32 | float64
+
+type
+  MatchingErrorKind = enum
+    NoError
+    WrongKind
+    WrongLength
+    WrongMinLength
+    WrongIdent
+    WrongLiteral
+
+  MatchingError = object
+    node: NimNode
+    case kind: MatchingErrorKind
+    of NoError:
+      discard
+    of WrongKind:
+      expectedKind: set[NimNodeKind]
+    of WrongLength, WrongMinLength:
+      expectedLength: int
+    of WrongIdent:
+      expectedIdent: NimNode
+    of WrongLiteral:
+      expectedLiteral: NimNode
+
+
+proc `$`*(arg: MatchingError): string =
+  result = ""
+  result.add "MatchError:\n"
+  result.add "  node:\n"
+  for line in arg.node.treeRepr.splitLines:
+    result.add "    "
+    result.add line
+    result.add "\n"
+  result.add "  lininfo:\n    "
+  result.add arg.node.lineinfo
+  result.add "\n  kind: "
+  result.add $arg.kind
+  result.add "\n"
+  case arg.kind
+  of NoError:
+    discard
+  of WrongKind:
+    result.add "  expectedKind: "
+    result.add $arg.expectedKind
+    result.add "\n"
+  of WrongLength, WrongMinLength:
+    result.add "  expectedLength: "
+    result.add arg.expectedLength
+    result.add "\n"
+  of WrongIdent:
+    result.add "  expectedIdent: "
+    result.add arg.expectedIdent.repr
+    result.add "\n"
+  of WrongLiteral:
+    result.add "  expectedLiteral: "
+    result.add arg.expectedLiteral.repr
+    result.add "\n"
+
+proc matchLen*(arg: NimNode; len: int): MatchingError {.compileTime.} =
+  if arg.len != len:
+    result.node = arg
+    result.kind = WrongLength
+    result.expectedLength = len
+
+proc matchKind(arg: NimNode; kind: NimNodeKind): MatchingError {.compileTime.} =
+  if arg.kind != kind:
+    result.node = arg
+    result.kind = WrongKind
+    result.expectedKind = {kind}
+
+proc matchKind(arg: NimNode; kind: set[NimNodeKind]): MatchingError {.compileTime.} =
+  if arg.kind notin kind:
+    result.node = arg
+    result.kind = WrongKind
+    result.expectedKind = kind
+
+proc failWithMatchingError*(arg: MatchingError): void {.compileTime, noReturn.} =
+  let n = arg.node
+  case arg.kind
+  of NoError:
+    error("argument isn't even an error")
+  of WrongKind:
+    let k = arg.expectedKind
+    error("Expected one of " & $k & ", got " & $n.kind, n)
+  of WrongLength:
+    let len = arg.expectedLength
+    error("macro expects a node with " & $len & " child(ren), got " & $n.kind & " with " & $n.len & " child(ren)", n)
+  of WrongMinLength:
+    let len = arg.expectedLength
+    error("macro expects a node with at least " & $len & " child(ren), got " & $n.kind & " with " & $n.len & " child(ren)", n)
+  of WrongIdent:
+    let value = arg.expectedIdent.repr
+    error("expected ident " & value & " but got " & n.repr, n)
+  of WrongLiteral:
+    let value = arg.expectedLiteral.repr
+    error("expected value " & value & " but got " & n.repr, n)
 
 proc expectIdent(arg: NimNode; value: string): void {.compileTime.} =
   arg.expectKind nnkIdent
@@ -45,81 +160,6 @@ proc expectValue[T](arg: NimNode; value: pointer): void {.compileTime.} =
     error("Expect Value for pointers works only on `nil` when the argument is a pointer.")
   arg.expectKind nnkNilLit
 
-type
-  MatchingErrorKind = enum
-    NoError
-    WrongKind
-    WrongLength
-    WrongIdent
-    WrongLiteral
-
-  MatchingError = object
-    node: NimNode
-    case kind: MatchingErrorKind
-    of NoError:
-      discard
-    of WrongKind:
-      expectedKind: set[NimNodeKind]
-    of WrongLength:
-      expectedLength: int
-    of WrongIdent:
-      expectedIdent: NimNode
-    of WrongLiteral:
-      expectedLiteral: NimNode
-
-
-proc `$`(arg: MatchingError): string =
-  result = ""
-  result.add "MatchError:\n"
-  result.add "  node:\n"
-  for line in arg.node.treeRepr.splitLines:
-    result.add "    "
-    result.add line
-    result.add "\n"
-  result.add "  lininfo:\n    "
-  result.add arg.node.lineinfo
-  result.add "\n  kind: "
-  result.add $arg.kind
-  result.add "\n"
-  case arg.kind
-  of NoError:
-    discard
-  of WrongKind:
-    result.add "  expectedKind: "
-    result.add $arg.expectedKind
-    result.add "\n"
-  of WrongLength:
-    result.add "  expectedLength: "
-    result.add arg.expectedLength
-    result.add "\n"
-  of WrongIdent:
-    result.add "  expectedIdent: "
-    result.add arg.expectedIdent.repr
-    result.add "\n"
-  of WrongLiteral:
-    result.add "  expectedLiteral: "
-    result.add arg.expectedLiteral.repr
-    result.add "\n"
-
-
-proc matchLen*(arg: NimNode; len: int): MatchingError {.compileTime.} =
-  if arg.len != len:
-    result.node = arg
-    result.kind = WrongLength
-
-proc matchKind(arg: NimNode; kind: NimNodeKind): MatchingError {.compileTime.} =
-  if arg.kind != kind:
-    result.node = arg
-    result.kind = WrongKind
-    result.expectedKind = {kind}
-
-proc matchKind(arg: NimNode; kind: set[NimNodeKind]): MatchingError {.compileTime.} =
-  if arg.kind notin kind:
-    result.node = arg
-    result.kind = WrongKind
-    result.expectedKind = kind
-
-# wtf why this star?
 
 proc matchIdent*(arg: NimNode; value: string): MatchingError {.compileTime.} =
   if not arg.eqIdent value:
@@ -162,7 +202,7 @@ static:
   for kind in NimNodeKind:
     nameToKind[ ($kind)[3..^1] ] = kind
 
-proc generateMatchingCode(astSym: NimNode, pattern: NimNode, depth: int, blockLabel, errorSym, result: NimNode): void =
+proc generateMatchingCode(astSym: NimNode, pattern: NimNode, depth: int, blockLabel, errorSym: NimNode; result: NimNode): void =
 
   proc nodeVisiting(astSym: NimNode, pattern: NimNode, depth: int): void =
     let ind = "  ".repeat(depth) # indentation
@@ -173,56 +213,37 @@ proc generateMatchingCode(astSym: NimNode, pattern: NimNode, depth: int, blockLa
         if `errorSym`.kind != NoError:
           break `blockLabel`
 
-    proc handleIdent(ident: NimNode): void =
-      if not ident.eqIdent("_"):
-        genMatchLogic(bindSym"matchKind", ident)
+    proc handleKindMatching(kindExpr: NimNode): void =
+      if kindExpr.eqIdent("_"):
+        # this is the wildcand that matches any kind
+        return
+      else:
+        genMatchLogic(bindSym"matchKind", kindExpr)
 
     # generate recursively a matching expression
-    if pattern.kind in {nnkCall, nnkCommand}:
-      # TODO: pattern[0] could be nnkPar with branching!
-      if pattern[0].kind == nnkIdent:
-        if pattern[0].eqIdent "nnkIdent":
-          debug ind, "Ident(", pattern[1].repr, ")"
-          let identStr =
-            if pattern[1].kind == nnkStrLit:
-              pattern[1].strVal
-            else:
-              pattern[1][0].expectIdent "ident"
-              pattern[1][1].strVal
-          genMatchLogic(bindSym"matchIdent", newLit(identStr))
+    if pattern.kind == nnkCall:
+      debug ind, pattern[0].repr, "("
 
-        elif pattern[0] in literals:
+      handleKindMatching(pattern[0])
 
-          if pattern.len == 1:
-            pattern[0].expectIdent "nnkNilLit"
-            debug ind, "newNilLit()"
-            debug pattern.lispRepr
-
-          else:
-            debug ind, "newLit(", pattern[1].repr, ")"
-            genMatchLogic(bindSym"matchValue", pattern[1])
-
-        else:
-          debug ind, pattern[0], "("
-          handleIdent(pattern[0])
-
-          if pattern.len > 0:
-            let lengthLit = newLit(pattern.len - 1)
-            genMatchLogic(bindSym"matchLen", lengthLit)
-
-          for i in 1 ..< pattern.len:
-            let childSym = genSym(nskLet)
-            let indexLit = newLit(i - 1)
-            result.add quote do:
-              let `childSym` = `astSym`[`indexLit`]
-            nodeVisiting(childSym, pattern[i], depth + 1)
-          debug ind, ")"
-
-      elif pattern[0].kind == nnkPar and pattern[0].len == 0 and pattern[0].kind == nnkIdent:
-        handleIdent(pattern[0][0])
+      if pattern.len == 2 and pattern[1].kind in nnkLiterals:
+        genMatchLogic(bindSym"matchValue", pattern[1])
 
       else:
-        debug ">>>> ", ind, pattern.lispRepr, " <<<< WARNING: unhandled!!! "
+        if pattern.len > 0:
+          let lengthLit = newLit(pattern.len - 1)
+          genMatchLogic(bindSym"matchLen", lengthLit)
+
+        for i in 1 ..< pattern.len:
+          let childSym = genSym(nskLet)
+          let indexLit = newLit(i - 1)
+          result.add quote do:
+            let `childSym` = `astSym`[`indexLit`]
+          nodeVisiting(childSym, pattern[i], depth + 1)
+      debug ind, ")"
+
+    elif pattern.kind == nnkCommand:
+      error("command syntax not allowed in pattern matching", pattern)
 
     elif pattern.kind == nnkAccQuoted:
       debug ind, pattern.repr
@@ -231,12 +252,7 @@ proc generateMatchingCode(astSym: NimNode, pattern: NimNode, depth: int, blockLa
       result.add quote do:
         let `matchedExpr` = `astSym`
 
-    elif pattern.kind == nnkIdent:
-      debug ind, pattern.repr
-      handleIdent(pattern)
-
-    elif pattern.kind == nnkInfix:
-      pattern[0].expectIdent("@")
+    elif pattern.kind == nnkInfix and pattern[0].eqIdent("@"):
       pattern[1].expectKind nnkAccQuoted
 
       let matchedExpr = pattern[1][0]
@@ -247,15 +263,12 @@ proc generateMatchingCode(astSym: NimNode, pattern: NimNode, depth: int, blockLa
       debug ind, pattern[1].repr, " = "
       nodeVisiting(matchedExpr, pattern[2], depth + 1)
 
-    elif pattern.kind == nnkPar:
-      # parens are just for ast generation. No special semantic meaning
-      # after the tree has been constructed.
-      debug pattern.lispRepr
-      pattern.expectLen 1
-      nodeVisiting(astSym, pattern[0], depth)
-
     else:
-      debug ">>>> ", ind, pattern.repr, " <<<< WARNING: unhandled!!! "
+      # When it is not one of the other branches, it is simply treated
+      # as an expression for the node kind, without checking child
+      # nodes.
+      debug ind, pattern.repr
+      handleKindMatching(pattern)
 
   nodeVisiting(astSym, pattern, depth)
 
@@ -270,14 +283,14 @@ macro matchAst*(ast: NimNode; args: varargs[untyped]): untyped =
       args[0].expectKind nnkIdent
       args[0]
     else:
-      genSym(nskLet, "errosSeq")
+      nil
 
-  let elseBranch =
+  let elseBranch: NimNode =
     if endBranches == args.len - 1:
       args[^1].expectKind(nnkElse)
       args[^1][0]
     else:
-      newEmptyNode()
+      nil
 
   let outerBlockLabel = genSym(nskLabel, "matchingSection")
   let outerStmtList = newStmtList()
@@ -302,9 +315,24 @@ macro matchAst*(ast: NimNode; args: varargs[untyped]): untyped =
       block `blockLabel`:
         `stmtList`
 
-  outerStmtList.add quote do:
-    let `outerErrorSym` = @`errorSymbols`
-    `elseBranch`
+  if elseBranch != nil:
+    if outerErrorSym != nil:
+      outerStmtList.add quote do:
+        let `outerErrorSym` = @`errorSymbols`
+        `elseBranch`
+    else:
+      outerStmtList.add elseBranch
+
+  else:
+    if errorSymbols.len == 1:
+      # there is only one of branch and no else branch
+      # the error message can be very precise here.
+      let errorSym = errorSymbols[0]
+      outerStmtList.add quote do:
+        failWithMatchingError(`errorSym`)
+    else:
+      outerStmtList.add quote do:
+        error("Ast does not match.", `ast`)
 
   result = quote do:
     block `outerBlockLabel`:
@@ -316,21 +344,17 @@ macro matchAst*(ast: NimNode; args: varargs[untyped]): untyped =
 ################################# Example Code #################################
 ################################################################################
 
+dumpTree:
+  *foobar(a,b,c)
+  {nnkA, nnkB}
+
+
 
 when isMainModule:
 
 
   static:
     let mykinds = {nnkIdent, nnkCall}
-
-    echo myKinds
-
-  dumpTree:
-    (var x: int; x += 1; x)
-    (StmtList | StmtListExpr | StmtExpr)(
-      foo @ Ident,
-      Empty
-    )
 
   macro foo(arg: untyped): untyped =
     matchAst(arg, matchError):
@@ -354,11 +378,38 @@ when isMainModule:
       echo "The matched sub tree is the following:"
       echo mysym.lispRepr
     else:
-      echo matchError
       echo "sadly the AST did not match :("
+      echo arg.treeRepr
+      failWithMatchingError(matchError[1])
 
   foo:
     let a = 123
     let b = 342
     for i in a ..< b:
       echo "Hallo", i
+
+  static:
+
+    var ast = quote do:
+      type
+        A[T: static[int]] = object
+
+    ast = ast.peelOff({nnkStmtList, nnkTypeSection})
+
+    ast.matchAst(err):  # this is a sub ast for this a findAst or something like that is useful
+    of nnkTypeDef(_, nnkGenericParams( nnkIdentDefs( nnkIdent("T"), nnkStaticTy( _ ), nnkEmpty )), _):
+      echo "ok"
+    else:
+      echo err
+      error "fail", ast
+
+    ast = quote do:
+      if cond1: expr1 elif cond2: expr2 else: expr3
+
+    ast.matchAst:
+    of {nnkIfExpr, nnkIfStmt}(
+      {nnkElifExpr, nnkElifBranch}(`cond1`, `expr1`),
+      {nnkElifExpr, nnkElifBranch}(`cond2`, `expr2`),
+      {nnkElseExpr, nnkElse}(`expr3`)
+    ):
+      echo "ok"
