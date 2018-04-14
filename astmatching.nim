@@ -10,6 +10,7 @@
 # TODO write about error messages
 # TODO update readme
 # TODO make it a nimble package
+# TODO join WrongLengthKind
 
 import macros, strutils, tables
 
@@ -43,9 +44,7 @@ type
     NoError
     WrongKind
     WrongLength
-    WrongMinLength
-    WrongIdent
-    WrongLiteral
+    WrongValue
 
   MatchingError = object
     node: NimNode
@@ -54,12 +53,10 @@ type
       discard
     of WrongKind:
       expectedKind: set[NimNodeKind]
-    of WrongLength, WrongMinLength:
+    of WrongLength:
       expectedLength: int
-    of WrongIdent:
-      expectedIdent: NimNode
-    of WrongLiteral:
-      expectedLiteral: NimNode
+    of WrongValue:
+      expectedValue: NimNode
 
 
 proc `$`*(arg: MatchingError): string =
@@ -82,17 +79,13 @@ proc `$`*(arg: MatchingError): string =
     result.add "  expectedKind: "
     result.add $arg.expectedKind
     result.add "\n"
-  of WrongLength, WrongMinLength:
+  of WrongLength:
     result.add "  expectedLength: "
-    result.add arg.expectedLength
+    result.add $arg.expectedLength
     result.add "\n"
-  of WrongIdent:
-    result.add "  expectedIdent: "
-    result.add arg.expectedIdent.repr
-    result.add "\n"
-  of WrongLiteral:
+  of WrongValue:
     result.add "  expectedLiteral: "
-    result.add arg.expectedLiteral.repr
+    result.add arg.expectedValue.repr
     result.add "\n"
 
 proc matchLen*(arg: NimNode; len: int): MatchingError {.compileTime.} =
@@ -124,20 +117,9 @@ proc failWithMatchingError*(arg: MatchingError): void {.compileTime, noReturn.} 
   of WrongLength:
     let len = arg.expectedLength
     error("macro expects a node with " & $len & " child(ren), got " & $n.kind & " with " & $n.len & " child(ren)", n)
-  of WrongMinLength:
-    let len = arg.expectedLength
-    error("macro expects a node with at least " & $len & " child(ren), got " & $n.kind & " with " & $n.len & " child(ren)", n)
-  of WrongIdent:
-    let value = arg.expectedIdent.repr
-    error("expected ident " & value & " but got " & n.repr, n)
-  of WrongLiteral:
-    let value = arg.expectedLiteral.repr
+  of WrongValue:
+    let value = arg.expectedValue.repr
     error("expected value " & value & " but got " & n.repr, n)
-
-proc expectIdent(arg: NimNode; value: string): void {.compileTime.} =
-  arg.expectKind nnkIdent
-  if not arg.eqIdent value:
-    error("expected ident " & value & " but got " & arg.repr, arg)
 
 proc expectValue(arg: NimNode; value: SomeInteger): void {.compileTime.} =
   `arg`.expectKind nnkLiterals
@@ -161,29 +143,23 @@ proc expectValue[T](arg: NimNode; value: pointer): void {.compileTime.} =
   arg.expectKind nnkNilLit
 
 
-proc matchIdent*(arg: NimNode; value: string): MatchingError {.compileTime.} =
-  if not arg.eqIdent value:
-    result.node = arg
-    result.kind = WrongIdent
-    result.expectedIdent = ident(value)
-
 proc matchValue(arg: NimNode; value: SomeInteger): MatchingError {.compileTime.} =
   if arg.intVal != int(value):
     result.node = arg
-    result.kind = WrongLiteral
-    result.expectedLiteral = newLit(value)
+    result.kind = WrongValue
+    result.expectedValue = newLit(value)
 
 proc matchValue(arg: NimNode; value: SomeFloat): MatchingError {.compileTime.} =
   if arg.floatVal != float(value):
     result.node = arg
-    result.kind = WrongLiteral
-    result.expectedLiteral = newLit(value)
+    result.kind = WrongValue
+    result.expectedValue = newLit(value)
 
 proc matchValue(arg: NimNode; value: string): MatchingError {.compileTime.} =
   if arg.strVal != value:
     result.node = arg
-    result.kind = WrongLiteral
-    result.expectedLiteral = newLit(value)
+    result.kind = WrongValue
+    result.expectedValue = newLit(value)
 
 proc matchValue[T](arg: NimNode; value: pointer): MatchingError =
   `arg`.expectKind nnkLiterals
