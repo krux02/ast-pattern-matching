@@ -8,7 +8,6 @@
 # TODO use min length
 # TODO pattern matching as expression
 # TODO write about error messages
-# TODO update readme
 # TODO make it a nimble package
 # TODO join WrongLengthKind
 
@@ -208,8 +207,6 @@ proc generateMatchingCode(astSym: NimNode, pattern: NimNode, depth: int, blockLa
       nodeVisiting(astSym, pattern[0], depth)
     elif pattern.kind == nnkPrefix:
       error("prefix patterns not implemented", pattern)
-    elif pattern.kind in nnkCallKinds:
-      error("only boring call syntax allowed here, this is " & $pattern.kind ".", pattern)
     elif pattern.kind == nnkAccQuoted:
       debug ind, pattern.repr
       let matchedExpr = pattern[0]
@@ -228,6 +225,8 @@ proc generateMatchingCode(astSym: NimNode, pattern: NimNode, depth: int, blockLa
       debug ind, pattern[1].repr, " = "
       nodeVisiting(matchedExpr, pattern[2], depth + 1)
 
+    elif pattern.kind in nnkCallKinds:
+      error("only boring call syntax allowed, this is " & $pattern.kind & ".", pattern)
     elif pattern.kind in nnkLiterals:
       genMatchLogic(bindSym"matchValue", pattern)
     else:

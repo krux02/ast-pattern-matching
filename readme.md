@@ -62,6 +62,7 @@ The grammar for the pattern matching looks like this:
     and the purpose is to debug matching expressions.
 
 
+
     matchAst(arg, matchErrors):
     of <pattern>: # branch A
       discard
@@ -76,3 +77,20 @@ The grammar for the pattern matching looks like this:
       echo matchErrors[1]
       echo "branch C could not match because:"
       echo matchErrors[2]
+
+
+When you leave out the else branch and there is only one of branch,
+you will get the nicest error message possible, why the pattern did
+not match.  Just try it out with this example:
+
+
+    let ast = quote do:
+      abc
+      def
+      ghi
+      jkl
+
+    ast.matchAst:
+    of nnkStmtList( `a`, `b`, `c`):
+      echo "the branch did match"
+      echo "but I do know that is impossible"
