@@ -16,20 +16,6 @@ import macros, strutils, tables
 
 export macros
 
-proc peelOff*(arg: NimNode, kinds: set[NimNodeKind]): NimNode =
-  ## Peel off  nodes of a specific kinds.
-  if arg.len == 1 and arg.kind in kinds:
-    arg[0].peelOff(kinds)
-  else:
-    arg
-
-proc peelOff*(arg: NimNode, kind: NimNodeKind): NimNode =
-  ## Peel off nodes of a specific kind.
-  if arg.len == 1 and arg.kind == kind:
-    arg[0].peelOff(kind)
-  else:
-    arg
-
 when isMainModule:
   template debug(args: varargs[untyped]): untyped =
     echo args
@@ -218,9 +204,12 @@ proc generateMatchingCode(astSym: NimNode, pattern: NimNode, depth: int, blockLa
           nodeVisiting(childSym, pattern[i], depth + 1)
       debug ind, ")"
 
-    elif pattern.kind == nnkCommand:
-      error("command syntax not allowed in pattern matching", pattern)
-
+    elif pattern.kind == nnkPar and pattern.len == 1:
+      nodeVisiting(astSym, pattern[0], depth)
+    elif pattern.kind == nnkPrefix:
+      error("prefix patterns not implemented", pattern)
+    elif pattern.kind in nnkCallKinds:
+      error("only boring call syntax allowed here, this is " & $pattern.kind ".", pattern)
     elif pattern.kind == nnkAccQuoted:
       debug ind, pattern.repr
       let matchedExpr = pattern[0]
@@ -239,6 +228,8 @@ proc generateMatchingCode(astSym: NimNode, pattern: NimNode, depth: int, blockLa
       debug ind, pattern[1].repr, " = "
       nodeVisiting(matchedExpr, pattern[2], depth + 1)
 
+    elif pattern.kind in nnkLiterals:
+      genMatchLogic(bindSym"matchValue", pattern)
     else:
       # When it is not one of the other branches, it is simply treated
       # as an expression for the node kind, without checking child
@@ -370,14 +361,10 @@ when isMainModule:
       type
         A[T: static[int]] = object
 
-    ast = ast.peelOff({nnkStmtList, nnkTypeSection})
-
+    ast = ast[0]
     ast.matchAst(err):  # this is a sub ast for this a findAst or something like that is useful
     of nnkTypeDef(_, nnkGenericParams( nnkIdentDefs( nnkIdent("T"), nnkStaticTy( _ ), nnkEmpty )), _):
       echo "ok"
-    else:
-      echo err
-      error "fail", ast
 
     ast = quote do:
       if cond1: expr1 elif cond2: expr2 else: expr3

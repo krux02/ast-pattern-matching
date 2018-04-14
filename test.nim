@@ -2,6 +2,23 @@ import astmatching
 
 # TODO test on matching failures
 
+
+proc peelOff*(arg: NimNode, kinds: set[NimNodeKind]): NimNode {.compileTime.} =
+  ## Peel off  nodes of a specific kinds.
+  if arg.len == 1 and arg.kind in kinds:
+    arg[0].peelOff(kinds)
+  else:
+    arg
+
+proc peelOff*(arg: NimNode, kind: NimNodeKind): NimNode {.compileTime.} =
+  ## Peel off nodes of a specific kind.
+  if arg.len == 1 and arg.kind == kind:
+    arg[0].peelOff(kind)
+  else:
+    arg
+
+
+
 static:
   template testPattern(pattern, astArg: untyped): untyped =
     let ast = quote do: `astArg`
@@ -157,12 +174,8 @@ static:
   testCallWithNamedArguments:
     writeLine(file=stdout, "hallo")
 
-
-
   ## Call with raw string literal
-
   block:
-
     let ast = quote do:
       echo"abc"
 
