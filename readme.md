@@ -94,3 +94,10 @@ not match.  Just try it out with this example:
     of nnkStmtList( `a`, `b`, `c`):
       echo "the branch did match"
       echo "but I do know that is impossible"
+
+
+## discussion
+
+Maybe at some point the pattern matching library will contain
+operators to match more flexible patterns with operators such as `+`,
+`*`, `|`. but that is not implemented. It would be possible though.
