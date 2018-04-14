@@ -172,10 +172,6 @@ static:
       nnkRStrLit("abc")
     ):
       echo "ok"
-    else:
-      echo ast.lispRepr
-      echo err
-      error "fail", ast
 
   ## Dereference operator ``[]``
 
