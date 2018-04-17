@@ -1,3 +1,6 @@
+# ast_pattern_matching
+# Copyright Arne Döring
+# a general ast pattern matching library with a focus on correctness and good error messages
 # TODO arbitrary matching conditions with if
 # TODO make it a nimble package
 # TODO matchRepr

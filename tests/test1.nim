@@ -1,4 +1,4 @@
-import astmatching
+import ast_pattern_matching
 
 # TODO test on matching failures
 
