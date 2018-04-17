@@ -27,7 +27,6 @@ static:
     let ast = quote do: `astArg`
     ast.matchAst:
     of `pattern`:
-      echo ast.lispRepr
       error("this should not match", ast)
     else:
       echo "OK"
@@ -107,8 +106,6 @@ static:
       nnkIntLit(intVal = 4)
     ):
       echo "ok3"
-    else:
-      error($errorSym[2], errorSym[2].node)
 
   testInfixOperatorCall("abc" & "xyz")
   testInfixOperatorCall(5 + 3 * 4)
@@ -143,11 +140,6 @@ static:
       ident"identifier"
     ):
       echo "ok"
-    else:
-
-      echo ast.lispRepr
-      echo err[0]
-      error "fail", ast
 
 
   ## Call with named arguments
@@ -163,8 +155,6 @@ static:
       nnkStrLit(strVal = "hallo")
     ):
       echo "ok"
-    else:
-      error "fail", ast
 
   testCallWithNamedArguments:
     writeLine(file=stdout, "hallo")
@@ -190,14 +180,6 @@ static:
       ast.matchAst(err):
       of nnkDerefExpr(_):
         echo "ok"
-      else:
-        var err0 = err[0]
-
-        #echo ast.lispRepr
-        echo err0.node.lispRepr
-        err0.node = nil
-        echo err0
-        error "fail", ast
 
     var x: ptr int
     testDereferenceOperator(x[])
@@ -227,8 +209,6 @@ static:
     ast.matchAst:
     of nnkCast(ident"T", ident"x"):
       echo "ok"
-    else:
-      error "fail", ast
 
 
   ## Object access operator ``.``
@@ -241,8 +221,6 @@ static:
     ast.matchAst:
     of nnkDotExpr(ident"x", ident"y"):
       echo "ok"
-    else:
-      error "fail", ast
 
   ## Array access operator ``[]``
 
@@ -250,8 +228,6 @@ static:
     ast.matchAst:
     of nnkBracketExpr(ident"x", ident"y"):
       echo "ok"
-    else:
-      error "fail", ast
 
   testArrayAccessOperator(x[y])
 
@@ -267,8 +243,6 @@ static:
     ast.matchAst:
     of nnkPar(nnkIntLit(intVal = 1), nnkIntLit(intVal = 2), nnkPar(nnkIntLit(intVal = 3))):
       echo "ok"
-    else:
-      error "fail", ast
 
 
   ## Curly braces
@@ -281,8 +255,6 @@ static:
     ast.matchAst:
     of nnkCurly(nnkIntLit(intVal = 1), nnkIntLit(intVal = 2), nnkIntLit(intVal = 3)):
       echo "ok"
-    else:
-      error "fail", ast
 
   block:
 
@@ -295,8 +267,6 @@ static:
       nnkExprColonExpr(ident"b", nnkIntLit(intVal = 5))
     ):
       echo "ok"
-    else:
-      error "fail", ast
 
 
   ## Brackets
@@ -309,8 +279,6 @@ static:
     ast.matchAst:
     of nnkBracket(nnkIntLit(intVal = 1), nnkIntLit(intVal = 2), nnkIntLit(intVal = 3)):
       echo "ok"
-    else:
-      error "fail", ast
 
 
   ## Ranges
@@ -327,8 +295,6 @@ static:
       nnkIntLit(intVal = 3)
     ):
       echo "ok"
-    else:
-      error "fail", ast
 
 
   ## If expression
@@ -363,8 +329,6 @@ static:
       nnkCommentStmt()
     ):
       echo "ok"
-    else:
-      error "fail", ast
 
 
 
@@ -382,8 +346,6 @@ static:
       )
     ):
       echo "ok"
-    else:
-      error "fail", ast
 
   block:
     echo "Pragmas 2 "
@@ -400,8 +362,6 @@ static:
       ident"cdecl"
     ):
       echo "ok"
-    else:
-      error "fail", ast
 
 
 
@@ -426,8 +386,6 @@ static:
       nnkElse(`stmt4`)
     ):
       echo "ok"
-    else:
-      error "fail", ast
 
 
 
@@ -440,8 +398,6 @@ static:
     ast.matchAst:
     of nnkAsgn(ident"x", nnkIntLit(intVal = 42)):
       echo "ok"
-    else:
-      error "fail", ast
 
 
 
@@ -459,8 +415,6 @@ static:
       assert stmt2.strVal == "stmt2"
       assert stmt3.strVal == "stmt3"
       echo "ok"
-    else:
-      error "fail", ast
 
   ## Case statement
 
@@ -498,8 +452,6 @@ static:
     ast.matchAst:
     of nnkWhileStmt(`expr1`, `stmt1`):
       echo "ok"
-    else:
-      error "fail", ast
 
 
   ## For statement
@@ -513,8 +465,6 @@ static:
     ast.matchAst:
     of nnkForStmt(`ident1`, `ident2`, `expr1`, `stmt1`):
       echo "ok"
-    else:
-      error "fail", ast
 
 
   ## Try statement
@@ -542,8 +492,6 @@ static:
       nnkFinally(`stmt5`)
     ):
       echo "ok"
-    else:
-      error "fail", ast
 
 
   ## Return statement
@@ -556,8 +504,6 @@ static:
     ast.matchAst:
     of nnkReturnStmt(`expr1`):
       echo "ok"
-    else:
-      error "fail", ast
 
 
   ## Continue statement
@@ -580,8 +526,6 @@ static:
     ast.matchAst:
     of nnkBreakStmt(ident"otherLocation"):
       echo "ok"
-    else:
-      error "fail", ast
 
   ## Block statement
 
@@ -594,8 +538,6 @@ static:
     ast.matchAst:
     of nnkBlockStmt(ident"name", nnkStmtList):
       echo "ok"
-    else:
-      error "fail", ast
 
   ## Asm statement
 
@@ -620,9 +562,7 @@ static:
 
     ast.matchAst:
     of nnkImportStmt(ident"math"):
-      echo "ok":
-    else:
-      error "fail", ast
+      echo "ok"
 
   block:
 
@@ -632,8 +572,6 @@ static:
     ast.matchAst:
     of nnkImportExceptStmt(ident"math",ident"pow"):
       echo "ok"
-    else:
-      error "fail", ast
 
   block:
 
@@ -649,8 +587,6 @@ static:
       )
     ):
       echo "ok"
-    else:
-      error "fail", ast
 
   ## From statement
 
@@ -662,8 +598,6 @@ static:
     ast.matchAst:
     of nnkFromStmt(ident"math", ident"pow"):
       echo "ok"
-    else:
-      error "fail", ast
 
   ## Export statement
 
@@ -675,8 +609,6 @@ static:
     ast.matchAst:
     of nnkExportStmt(ident"unsigned"):
       echo "ok"
-    else:
-      error "fail", ast
 
   block:
 
@@ -686,8 +618,6 @@ static:
     ast.matchAst:
     of nnkExportExceptStmt(ident"math",ident"pow"):
       echo "ok"
-    else:
-      error "fail", ast
 
   ## Include statement
 
@@ -699,8 +629,6 @@ static:
     ast.matchAst:
     of nnkIncludeStmt(ident"blocks"):
       echo "ok"
-    else:
-      error "fail", ast
 
   ## Var section
 
@@ -718,8 +646,6 @@ static:
       )
     ):
       echo "ok"
-    else:
-      error "fail", ast
 
   ## Let section
 
@@ -737,8 +663,6 @@ static:
       )
     ):
       echo "ok"
-    else:
-      error "fail", ast
 
   ## Const section
 
@@ -756,8 +680,6 @@ static:
       )
     ):
       echo "ok"
-    else:
-      error "fail", ast
 
   ## Type section
 
@@ -775,8 +697,6 @@ static:
       )
     ):
       echo "ok"
-    else:
-      error "fail", ast
 
   block:
 
@@ -815,8 +735,6 @@ static:
       )
     ):
       echo "ok"
-    else:
-      error "fail", ast
 
   block:
 
@@ -947,12 +865,10 @@ static:
       ident"MyProc",
       nnkGenericParams, # here, not with the proc
       nnkProcTy( # behaves like a procedure declaration from here on
-        nnkFormalParams
+        nnkFormalParams, _
       )
     ):
       echo "ok"
-    else:
-      echo err[0].node.lispRepr
 
   ## Mixin statement
 
@@ -1014,19 +930,19 @@ static:
 
   block:
 
-    let ast = quote do:
+    var ast = quote do:
       proc foobar(a, b: int): void
 
-    echo ast.treeRepr
+    ast = ast[3]
 
     ast.matchAst:  # sub expression
     of nnkFormalParams(
-      nnkEmpty(), # no return here
+      _, # return would be here
       nnkIdentDefs(
         ident"a", # the first parameter
         ident"b", # directly to the second parameter
         ident"int", # their shared type identifier
-        nnkEmpty(), # default value would go here
+        nnkEmpty, # default value would go here
       )
     ):
       echo "ok"
@@ -1036,15 +952,13 @@ static:
     let ast = quote do:
       proc hello(): var int
 
-    ast.matchAst: # subAst
+    ast[3].matchAst: # subAst
     of nnkFormalParams(
       nnkVarTy(
         ident"int"
       )
     ):
       echo "ok"
-    else:
-      error "fail", ast
 
   ## Iterator declaration
 
@@ -1054,14 +968,8 @@ static:
       iterator nonsense[T](x: seq[T]): float {.closure.} =
         discard
 
-    echo "foobar"
-    echo ast.treeRepr
-
     ast.matchAst:
-    of nnkIteratorDef(
-      ident"nonsense",
-      nnkEmpty()
-    ):
+    of nnkIteratorDef(ident"nonsense", nnkEmpty, _, _, _, _, _):
       echo "ok"
 
   ## Converter declaration
@@ -1072,10 +980,7 @@ static:
       converter toBool(x: float): bool
 
     ast.matchAst:
-    of nnkConverterDef(
-      ident"toBool",
-      # ...
-    ):
+    of nnkConverterDef(ident"toBool",_,_,_,_,_,_):
       echo "ok"
 
   ## Template declaration
@@ -1085,11 +990,5 @@ static:
       template optOpt{expr1}(a: int): int
 
     ast.matchAst:
-    of nnkTemplateDef(
-      ident"optOpt",
-      nnkStmtList( # instead of nnkEmpty()
-        `expr1`
-      )
-      # follows like a proc or iterator
-    ):
+    of nnkTemplateDef(ident"optOpt", nnkStmtList(`expr1`), _, _, _, _, _):
       echo "ok"
