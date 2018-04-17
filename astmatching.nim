@@ -1,5 +1,4 @@
 # TODO arbitrary matching conditions with if
-# TODO pattern matching as expression
 # TODO make it a nimble package
 # TODO matchRepr
 # TODO document match constant as literal
@@ -67,7 +66,10 @@ proc `$`*(arg: MatchingError): string =
   of WrongValue:
     let k = $arg.expectedKind
     let v = arg.expectedValue.repr
-    "expected " & k & " with value " & v & " but got " & n.lispRepr
+    var msg = "expected " & k & " with value " & v & " but got " & n.lispRepr
+    if n.kind in {nnkOpenSymChoice, nnkClosedSymChoice}:
+      msg = msg & " (a sym-choice does not have a strVal member, maybe you should match with `ident`)"
+    msg
   of WrongIdent:
     let prefix = "expected ident `" & arg.strVal & "` but got "
     if n.kind in {nnkIdent, nnkSym, nnkOpenSymChoice, nnkClosedSymChoice}:
@@ -140,10 +142,16 @@ proc matchValue(arg: NimNode; kind: set[NimNodeKind]; value: SomeFloat): Matchin
 proc matchValue(arg: NimNode; kind: NimNodeKind; value: SomeFloat): MatchingError {.compileTime.} =
   matchValue(arg, {kind}, value)
 
+const nnkStrValKinds = {nnkStrLit, nnkRStrLit, nnkTripleStrLit, nnkIdent, nnkSym}
+
 proc matchValue(arg: NimNode; kind: set[NimNodeKind]; value: string): MatchingError {.compileTime.} =
   # if kind * nnkStringLiterals TODO do something that ensures that here is only checked for string literals
   let kindFail   = not(kind.card == 0 or arg.kind in kind)
-  let valueFail  =  arg.strVal != value
+  let valueFail  =
+    if kind.card == 0:
+      false
+    else:
+      arg.kind notin (kind * nnkStrValKinds) or arg.strVal != value
   if kindFail or valueFail:
     result.node = arg
     result.kind = WrongValue
@@ -211,7 +219,6 @@ proc generateMatchingCode(astSym: NimNode, pattern: NimNode, depth: int, blockLa
       # handleKindMatching(pattern[0])
 
       if pattern.len == 2 and pattern[1].kind == nnkExprEqExpr:
-        # TODO request the right lhs value for ==
         if pattern[1][1].kind in nnkStringLiterals:
           pattern[1][0].expectIdent("strVal")
         elif pattern[1][1].kind in nnkIntLiterals:
@@ -342,12 +349,7 @@ macro matchAst*(ast: NimNode; args: varargs[untyped]): untyped =
 ################################# Example Code #################################
 ################################################################################
 
-dumpTree:
-  ident"abc"
-
 when isMainModule:
-
-
   static:
     let mykinds = {nnkIdent, nnkCall}
 
@@ -411,4 +413,11 @@ when isMainModule:
     of nnkIntLit( 1 ):
       echo "fail"
     of nnkStmtList( 1 ):
+      echo "ok"
+
+    ast = bindSym"[]"
+    ast.matchAst(errors):
+    of nnkClosedSymChoice(strVal = "[]"):
+      echo "fail, this is the wrong syntax, a sym choice does not have a `strVal` member."
+    of ident"[]":
       echo "ok"
