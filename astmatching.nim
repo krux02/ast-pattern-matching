@@ -4,6 +4,8 @@
 # TODO pattern matching as expression
 # TODO make it a nimble package
 # TODO join WrongLengthKind
+# TODO resolue ambiguety
+
 
 import macros, strutils, tables
 
@@ -181,8 +183,8 @@ proc generateMatchingCode(astSym: NimNode, pattern: NimNode, depth: int, blockLa
 
       handleKindMatching(pattern[0])
 
-      if pattern.len == 2 and pattern[1].kind in nnkLiterals:
-        genMatchLogic(bindSym"matchValue", pattern[1])
+      if pattern.len == 2 and pattern[1].kind == nnkExprEqExpr:
+        genMatchLogic(bindSym"matchValue", pattern[1][1])
 
       else:
         if pattern.len > 0:
@@ -308,8 +310,6 @@ dumpTree:
   *foobar(a,b,c)
   {nnkA, nnkB}
 
-
-
 when isMainModule:
 
 
@@ -323,13 +323,13 @@ when isMainModule:
     of nnkStmtList(
       _(
         nnkIdentDefs(
-          nnkIdent("a"),
-          nnkEmpty, nnkIntLit(123)
+          nnkIdent(strVal = "a"),
+          nnkEmpty, nnkIntLit(intVal = 123)
         )
       ),
       _,
       nnkForStmt(
-        nnkIdent("i"),
+        nnkIdent(strVal = "i"),
         nnkInfix,
         `mysym` @ nnkStmtList
       )
@@ -356,7 +356,7 @@ when isMainModule:
 
     ast = ast[0]
     ast.matchAst(err):  # this is a sub ast for this a findAst or something like that is useful
-    of nnkTypeDef(_, nnkGenericParams( nnkIdentDefs( nnkIdent("T"), nnkStaticTy( _ ), nnkEmpty )), _):
+    of nnkTypeDef(_, nnkGenericParams( nnkIdentDefs( nnkIdent(strVal = "T"), nnkStaticTy( _ ), nnkEmpty )), _):
       echo "ok"
 
     ast = quote do:
@@ -368,4 +368,13 @@ when isMainModule:
       {nnkElifExpr, nnkElifBranch}(`cond2`, `expr2`),
       {nnkElseExpr, nnkElse}(`expr3`)
     ):
+      echo "ok"
+
+
+    let ast2 = nnkStmtList.newTree( newLit(1) )
+
+    ast2.matchAst:
+    of nnkIntLit( 1 ):
+      echo "fail"
+    of nnkStmtList( 1 ):
       echo "ok"

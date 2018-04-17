@@ -48,6 +48,11 @@ The grammar for the pattern matching looks like this:
     on everything. It creates an identifier for that subtree, so that
     it has a name in the branch body.
 
+  * ``nnkIntLit(intVal = 123)`` will the integer literal `123`, but
+    not ``123'u32``
+
+  * `123` will also match the integer literal `123`, but also ``123'u32``.
+
   * `` `somename` @ <pattern> `` a named subtree. it matches on
     _<pattern>_ but binds the name `somename` to that node.
     checked by _<pattern>_
@@ -101,3 +106,5 @@ not match.  Just try it out with this example:
 Maybe at some point the pattern matching library will contain
 operators to match more flexible patterns with operators such as `+`,
 `*`, `|`. but that is not implemented. It would be possible though.
+
+The ast matching statement does not work as an expression.
