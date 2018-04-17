@@ -66,6 +66,12 @@ The grammar for the pattern matching looks like this:
     ``let matchErrors: seq[MatchingError]``. It's an optional argument
     and the purpose is to debug matching expressions.
 
+  * ``ident"abc"`` will match all symbols and identifiers etc that are
+    equal to "abc" according to ``eqIdent``.
+
+  * An identifier can also be matched with ``nnkIdent(strVal =
+    "abc")`` but that would not match on symbols or identifiers with a
+    different style such as `aB_c`.
 
 
     matchAst(arg, matchErrors):

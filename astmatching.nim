@@ -36,25 +36,24 @@ proc newLit[T](arg: set[T]): NimNode =
 type SomeFloat = float | float32 | float64
 
 type
-  MatchingErrorKind = enum
+  MatchingErrorKind* = enum
     NoError
     WrongKindLength
     WrongValue
     WrongIdent
 
   MatchingError = object
-    node: NimNode
-    expectedKind: set[NimNodeKind]
-    case kind: MatchingErrorKind
+    node*: NimNode
+    expectedKind*: set[NimNodeKind]
+    case kind*: MatchingErrorKind
     of NoError:
       discard
     of WrongKindLength:
-      expectedLength: int
+      expectedLength*: int
     of WrongValue:
-      expectedValue: NimNode
+      expectedValue*: NimNode
     of WrongIdent:
-      strVal: string
-
+      strVal*: string
 
 proc `$`*(arg: MatchingError): string =
   let n = arg.node
@@ -75,7 +74,6 @@ proc `$`*(arg: MatchingError): string =
       prefix & "`" & n.strVal & "`"
     else:
       prefix & $n.kind & " with " & $n.len & " child(ren)"
-
 
 proc failWithMatchingError*(arg: MatchingError): void {.compileTime, noReturn.} =
   error($arg, arg.node)
@@ -106,9 +104,9 @@ proc expectIdent(arg: NimNode; strVal: string): void {.compileTime.} =
     error("Expect ident `" & strVal & "` but got " & arg.repr)
 
 proc matchLengthKind*(arg: NimNode; kind: set[NimNodeKind]; length: int): MatchingError {.compileTime.} =
-  let lengthFail = not(length < 0 or length == arg.len)
   let kindFail   = not(kind.card == 0 or arg.kind in kind)
-  if lengthFail or kindFail:
+  let lengthFail = not(length < 0 or length == arg.len)
+  if kindFail or lengthFail:
     result.node = arg
     result.kind = WrongKindLength
     result.expectedLength = length
@@ -119,27 +117,37 @@ proc matchLengthKind*(arg: NimNode; kind: NimNodeKind; length: int): MatchingErr
   matchLengthKind(arg, {kind}, length)
 
 proc matchValue(arg: NimNode; kind: set[NimNodeKind]; value: SomeInteger): MatchingError {.compileTime.} =
-  if arg.intVal != int(value):
+  let kindFail   = not(kind.card == 0 or arg.kind in kind)
+  let valueFail  = arg.intVal != int(value)
+  if kindFail or valueFail:
     result.node = arg
     result.kind = WrongValue
+    result.expectedKind  = kind
     result.expectedValue = newLit(value)
 
 proc matchValue(arg: NimNode; kind: NimNodeKind; value: SomeInteger): MatchingError {.compileTime.} =
   matchValue(arg, {kind}, value)
 
 proc matchValue(arg: NimNode; kind: set[NimNodeKind]; value: SomeFloat): MatchingError {.compileTime.} =
-  if arg.floatVal != float(value):
+  let kindFail   = not(kind.card == 0 or arg.kind in kind)
+  let valueFail  = arg.floatVal != float(value)
+  if kindFail or valueFail:
     result.node = arg
     result.kind = WrongValue
+    result.expectedKind  = kind
     result.expectedValue = newLit(value)
 
 proc matchValue(arg: NimNode; kind: NimNodeKind; value: SomeFloat): MatchingError {.compileTime.} =
   matchValue(arg, {kind}, value)
 
 proc matchValue(arg: NimNode; kind: set[NimNodeKind]; value: string): MatchingError {.compileTime.} =
-  if arg.strVal != value:
+  # if kind * nnkStringLiterals TODO do something that ensures that here is only checked for string literals
+  let kindFail   = not(kind.card == 0 or arg.kind in kind)
+  let valueFail  =  arg.strVal != value
+  if kindFail or valueFail:
     result.node = arg
     result.kind = WrongValue
+    result.expectedKind  = kind
     result.expectedValue = newLit(value)
 
 proc matchValue(arg: NimNode; kind: NimNodeKind; value: string): MatchingError {.compileTime.} =
@@ -150,12 +158,11 @@ proc matchValue[T](arg: NimNode; value: pointer): MatchingError {.compileTime.} 
     error("Expect Value for pointers works only on `nil` when the argument is a pointer.")
   arg.matchLengthKind(nnkNilLit, -1)
 
-proc matchIdent(arg:NimNode; value: string): MatchingError =
+proc matchIdent*(arg:NimNode; value: string): MatchingError =
   if not arg.eqIdent(value):
     result.node = arg
     result.kind = Wrongident
     result.strVal = value
-
 
 static:
   var literals: array[19, NimNode]
@@ -226,7 +233,7 @@ proc generateMatchingCode(astSym: NimNode, pattern: NimNode, depth: int, blockLa
           nodeVisiting(childSym, pattern[i], depth + 1)
       debug ind, ")"
     elif pattern.kind == nnkCallStrLit and pattern[0].eqIdent("ident"):
-      genMatchLogic(bindSym"matchValue", identifierKinds, pattern[1])
+      genIdentMatchLogic(pattern[1])
 
     elif pattern.kind == nnkPar and pattern.len == 1:
       nodeVisiting(astSym, pattern[0], depth)
@@ -351,7 +358,7 @@ when isMainModule:
     of nnkStmtList(
       _(
         nnkIdentDefs(
-          nnkIdent(strVal = "a"),
+          ident"a",
           nnkEmpty, nnkIntLit(intVal = 123)
         )
       ),
