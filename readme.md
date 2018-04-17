@@ -73,6 +73,12 @@ The grammar for the pattern matching looks like this:
     "abc")`` but that would not match on symbols or identifiers with a
     different style such as `aB_c`.
 
+  * A constant can be matched in the following form:
+    ``_(intVal = myConst)``. You can even do that if `myConst` in that
+    context is a string. The identifier on left side of the expression
+    is completely ignored for constants.  But please don't do that. I
+    could not find a way to prevent this.
+
 
     matchAst(arg, matchErrors):
     of <pattern>: # branch A

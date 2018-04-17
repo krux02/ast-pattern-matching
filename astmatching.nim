@@ -2,6 +2,7 @@
 # TODO make it a nimble package
 # TODO matchRepr
 # TODO document match constant as literal
+# DONE all tests pass
 # DONE strVal etc restriction
 # DONE ident matching
 # DONE join WrongLengthKind
@@ -420,4 +421,12 @@ when isMainModule:
     of nnkClosedSymChoice(strVal = "[]"):
       echo "fail, this is the wrong syntax, a sym choice does not have a `strVal` member."
     of ident"[]":
+      echo "ok"
+
+
+    const myConst = 123
+    ast = newLit(123)
+
+    ast.matchAst:
+    of _(intVal = myConst):
       echo "ok"
