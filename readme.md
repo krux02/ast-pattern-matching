@@ -105,6 +105,9 @@ not match.  Just try it out with this example:
 
 Maybe at some point the pattern matching library will contain
 operators to match more flexible patterns with operators such as `+`,
-`*`, `|`. but that is not implemented. It would be possible though.
+`*`, `|`, `?`. but that is not implemented. It would be possible though.
+
+It would just raise the question how are named subexpressions are
+handled in such optional pattern branches.
 
 The ast matching statement does not work as an expression.

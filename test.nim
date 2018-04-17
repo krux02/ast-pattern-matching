@@ -2,7 +2,6 @@ import astmatching
 
 # TODO test on matching failures
 
-
 proc peelOff*(arg: NimNode, kinds: set[NimNodeKind]): NimNode {.compileTime.} =
   ## Peel off  nodes of a specific kinds.
   if arg.len == 1 and arg.kind in kinds:
@@ -17,8 +16,6 @@ proc peelOff*(arg: NimNode, kind: NimNodeKind): NimNode {.compileTime.} =
   else:
     arg
 
-
-
 static:
   template testPattern(pattern, astArg: untyped): untyped =
     let ast = quote do: `astArg`
@@ -27,24 +24,24 @@ static:
     of `pattern`:
       echo "ok"
 
-  testPattern nnkIntLit(42)            , 42
-  testPattern nnkInt8Lit(42)           , 42'i8
-  testPattern nnkInt16Lit(42)          , 42'i16
-  testPattern nnkInt32Lit(42)          , 42'i32
-  testPattern nnkInt64Lit(42)          , 42'i64
-  testPattern nnkUInt8Lit(42)          , 42'u8
-  testPattern nnkUInt16Lit(42)         , 42'u16
-  testPattern nnkUInt32Lit(42)         , 42'u32
-  testPattern nnkUInt64Lit(42)         , 42'u64
-  #testPattern nnkFloat64Lit(42.0)      , 42.0
-  testPattern nnkFloat32Lit(42.0)      , 42.0'f32
-  #testPattern nnkFloat64Lit(42.0)      , 42.0'f64
-  testPattern nnkStrLit("abc")         , "abc"
-  testPattern nnkRStrLit("abc")        , r"abc"
-  testPattern nnkTripleStrLit("abc")   , """abc"""
-  testPattern nnkCharLit(32)           , ' '
+  testPattern nnkIntLit(intVal = 42)            , 42
+  testPattern nnkInt8Lit(intVal = 42)           , 42'i8
+  testPattern nnkInt16Lit(intVal = 42)          , 42'i16
+  testPattern nnkInt32Lit(intVal = 42)          , 42'i32
+  testPattern nnkInt64Lit(intVal = 42)          , 42'i64
+  testPattern nnkUInt8Lit(intVal = 42)          , 42'u8
+  testPattern nnkUInt16Lit(intVal = 42)         , 42'u16
+  testPattern nnkUInt32Lit(intVal = 42)         , 42'u32
+  testPattern nnkUInt64Lit(intVal = 42)         , 42'u64
+  #testPattern nnkFloat64Lit(floatVal = 42.0)      , 42.0
+  testPattern nnkFloat32Lit(floatVal = 42.0)      , 42.0'f32
+  #testPattern nnkFloat64Lit(floatVal = 42.0)      , 42.0'f64
+  testPattern nnkStrLit(strVal = "abc")         , "abc"
+  testPattern nnkRStrLit(strVal = "abc")        , r"abc"
+  testPattern nnkTripleStrLit(strVal = "abc")   , """abc"""
+  testPattern nnkCharLit(intVal = 32)           , ' '
   testPattern nnkNilLit()              , nil
-  testPattern nnkIdent("myIdentifier") , myIdentifier
+  testPattern nnkIdent(strVal = "myIdentifier") , myIdentifier
 
 static:
   ## Command call
@@ -439,7 +436,7 @@ static:
       x = 42
 
     ast.matchAst:
-    of nnkAsgn(nnkIdent("x"), nnkIntLit(42)):
+    of nnkAsgn(nnkIdent("x"), nnkIntLit(intVal = 42)):
       echo "ok"
     else:
       error "fail", ast
