@@ -38,6 +38,8 @@ proc newLit[T](arg: set[T]): NimNode =
 
 type SomeFloat = float | float32 | float64
 
+proc len[T](arg: set[T]): int = card(arg)
+
 type
   MatchingErrorKind* = enum
     NoError
@@ -64,9 +66,22 @@ proc `$`*(arg: MatchingError): string =
   of NoError:
     "no error"
   of WrongKindLength:
-    let k = $arg.expectedKind
-    let l = $arg.expectedLength
-    "expected " & k & " with " & l & " child(ren), but got " & $n.kind & " with " & $n.len & " child(ren)"
+    let k = arg.expectedKind
+    let l = arg.expectedLength
+    var msg = "expected "
+    if k.len == 0:
+      msg.add "any node"
+    elif k.len == 1:
+      msg.add $k[0]
+    else:
+      msg.add "a node in" & $k
+
+    if l >= 0:
+      msg.add " with " & $l & " child(ren)"
+    msg.add ", but got " & $n.kind
+    if l >= 0:
+      msg.add " with " & $n.len & " child(ren)"
+    msg
   of WrongValue:
     let k = $arg.expectedKind
     let v = arg.expectedValue.repr
