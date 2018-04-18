@@ -2,9 +2,9 @@
 # Copyright Arne Döring
 # a general ast pattern matching library with a focus on correctness and good error messages
 # TODO arbitrary matching conditions with if
-# TODO make it a nimble package
 # TODO matchRepr
-# TODO document match constant as literal
+# DONE make it a nimble package
+# DONE document match constant as literal
 # DONE all tests pass
 # DONE strVal etc restriction
 # DONE ident matching
