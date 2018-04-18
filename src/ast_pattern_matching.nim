@@ -72,7 +72,8 @@ proc `$`*(arg: MatchingError): string =
     if k.len == 0:
       msg.add "any node"
     elif k.len == 1:
-      msg.add $k[0]
+      for el in k:  # only one element but there is no index op for sets
+        msg.add $el
     else:
       msg.add "a node in" & $k
 
