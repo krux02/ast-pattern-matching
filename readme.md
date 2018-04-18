@@ -20,9 +20,9 @@
 
 
 `matchAst` is where the magic happens. In the of-branch is a tree that
-can at any time be generated vial `lispRepr` on an arbitrary
+can at any time be generated via `lispRepr` on an arbitrary
 `NimNode`. But the pattern language also allows for some additional
-constructs, to winden the possibilities of the pattern.
+constructs, to widen the possibilities of the pattern.
 
 
 The grammar for the pattern matching looks like this:
@@ -31,7 +31,7 @@ The grammar for the pattern matching looks like this:
 
   * ``of <pattern>:`` is a branch of the pattern matching library.
 
-  * ``nnkInfix`` an example how to just check the node kind. It match
+  * ``nnkInfix`` an example how to just check the node kind. It matches
     on any node of kind ``nnkInfix``. It won't check the length or any
     of the children.
 
@@ -53,7 +53,7 @@ The grammar for the pattern matching looks like this:
   * ``nnkIntLit(intVal = 123)`` will match the integer literal `123` but
     not ``123'u32``.
 
-  * `_(intVal = myConst)`` matches any literal with the value of
+  * `_(intVal = myConst)` matches any literal with the value of
     `myConst`. This is the recommended way if you want to mach
     constants. Currently the lhs side of the matching expression is
     completely ignored, so you could match strings with ``_(intVal =
