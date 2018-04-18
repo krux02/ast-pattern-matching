@@ -88,6 +88,16 @@ The grammar for the pattern matching looks like this:
     different style such as `aB_c`. Please don't use this for
     identifier matching.
 
+  * ``<expr>(...)`` any expression can be used to match for the
+    idintifier, as long as it is an expression that evaluates to
+    ``NimNodeKind`` or ``set[NimNodeKind]``. For example
+    ``{nnkElifExpr, nnkElifBranch}(_)`` is a totally valid pattern to
+    match for ``elif:``.
+
+  * ``<expr>`` meaning any expression that is not one of the other
+    expressions is expected to evaluate to a ``NimNodeKind`` or
+    ``set[NimNodeKind]`` and is used to mach the kind for an expression.
+
 
     matchAst(arg, matchErrors):
     of <pattern>: # branch A
@@ -104,7 +114,6 @@ The grammar for the pattern matching looks like this:
       echo "branch C could not match because:"
       echo matchErrors[2]
 
-
 When you leave out the else branch and there is only one of branch,
 you will get the nicest error message possible, why the pattern did
 not match.  Just try it out with this example:
@@ -120,6 +129,9 @@ not match.  Just try it out with this example:
     of nnkStmtList( `a`, `b`, `c`):
       echo "the branch did match"
       echo "but I do know that is impossible"
+
+for more examples, take a look at the sourcecode. The file
+`tests/test1.nim` has a lot of examples that should you get started.
 
 
 ## discussion
