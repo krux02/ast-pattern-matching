@@ -31,27 +31,39 @@ The grammar for the pattern matching looks like this:
 
   * ``of <pattern>:`` is a branch of the pattern matching library.
 
-  * ``nnkInfix`` an example of just the node kind without braces. in this
-    case the childern of the infix node are not checked.
+  * ``nnkInfix`` an example how to just check the node kind. It match
+    on any node of kind ``nnkInfix``. It won't check the length or any
+    of the children.
 
   * ``nnkStmtList(<pattern>, <pattern>, <pattern>)`` will match on any
-    any node of kind `nnkStmtList` and length 3.
+    any node of kind `nnkStmtList` with length 3, if also the
+    subpatterns of the children match.
 
-  * ``nnkStmtList`` without an opening brace `(` matches nodes of kind
-    nnkStmtList.  It will check for length of any children.
+  * ``nnkStmtList`` without an opening brace `(` is just like
+    ``nnkInfix`` again. It won't check for any children.
 
   * ``nnkStmtList()`` matches only an empty statement list.
 
-  * `_` the wildcard, matches on everything
+  * `_` the wildcard, matches on everything.
   .
   * `` `somename` `` is a named subtree. Like the wildcard, it matches
-    on everything. It creates an identifier for that subtree, so that
-    it has a name in the branch body.
+    on everything. But it creates an identifier for that subtree, so that
+    it can be called by name in the branch body.
 
-  * ``nnkIntLit(intVal = 123)`` will the integer literal `123`, but
-    not ``123'u32``
+  * ``nnkIntLit(intVal = 123)`` will match the integer literal `123` but
+    not ``123'u32``.
 
-  * `123` will also match the integer literal `123`, but also ``123'u32``.
+  * `_(intVal = myConst)`` matches any literal with the value of
+    `myConst`. This is the recommended way if you want to mach
+    constants. Currently the lhs side of the matching expression is
+    completely ignored, so you could match strings with ``_(intVal =
+    myStrConst)`` and the other way around. But please don't do
+    that. It will confuse programmers, and I will break that code if
+    I found a reliable way to disallow it.
+
+  * Just literals like `123` will also match any literals with the
+    same value. so it would match on a literal such as `123`, but only
+    literals of a different kind such as ``123'u32``.
 
   * `` `somename` @ <pattern> `` a named subtree. it matches on
     _<pattern>_ but binds the name `somename` to that node.
@@ -67,17 +79,14 @@ The grammar for the pattern matching looks like this:
     and the purpose is to debug matching expressions.
 
   * ``ident"abc"`` will match all symbols and identifiers etc that are
-    equal to "abc" according to ``eqIdent``.
+    equal to "abc". For equality checks eqIdent will be used. A node
+    `n` that returns true in ``eqIdent(n, "abc")`` will be matched
+    with that expression.
 
   * An identifier can also be matched with ``nnkIdent(strVal =
-    "abc")`` but that would not match on symbols or identifiers with a
-    different style such as `aB_c`.
-
-  * A constant can be matched in the following form:
-    ``_(intVal = myConst)``. You can even do that if `myConst` in that
-    context is a string. The identifier on left side of the expression
-    is completely ignored for constants.  But please don't do that. I
-    could not find a way to prevent this.
+    "abc")`` but that would not match on symbols choices or identifiers with a
+    different style such as `aB_c`. Please don't use this for
+    identifier matching.
 
 
     matchAst(arg, matchErrors):
@@ -122,4 +131,8 @@ operators to match more flexible patterns with operators such as `+`,
 It would just raise the question how are named subexpressions are
 handled in such optional pattern branches.
 
-The ast matching statement does not work as an expression.
+if the parser allows it to add custom conditions to of branches, such
+as ``of <patter> if a > b:`` it will be implemented.
+
+
+The ast matching statement does not work as an expression (yet).
