@@ -56,7 +56,6 @@ proc use(r: var TResource) =
 autoClose(
     r1 = openResource("test"),
     r2 = openResource("tast"),
-    uidtarne
 ):
   use r1
   use r2

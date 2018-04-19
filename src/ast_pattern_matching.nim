@@ -44,7 +44,7 @@ type
   MatchingErrorKind* = enum
     NoError
     WrongKindLength
-    WrongValue
+    WrongKindValue
     WrongIdent
 
   MatchingError = object
@@ -55,7 +55,7 @@ type
       discard
     of WrongKindLength:
       expectedLength*: int
-    of WrongValue:
+    of WrongKindValue:
       expectedValue*: NimNode
     of WrongIdent:
       strVal*: string
@@ -83,7 +83,7 @@ proc `$`*(arg: MatchingError): string =
     if l >= 0:
       msg.add " with " & $n.len & " child(ren)"
     msg
-  of WrongValue:
+  of WrongKindValue:
     let k = $arg.expectedKind
     let v = arg.expectedValue.repr
     var msg = "expected " & k & " with value " & v & " but got " & n.lispRepr
@@ -143,7 +143,7 @@ proc matchValue(arg: NimNode; kind: set[NimNodeKind]; value: SomeInteger): Match
   let valueFail  = arg.intVal != int(value)
   if kindFail or valueFail:
     result.node = arg
-    result.kind = WrongValue
+    result.kind = WrongKindValue
     result.expectedKind  = kind
     result.expectedValue = newLit(value)
 
@@ -155,7 +155,7 @@ proc matchValue(arg: NimNode; kind: set[NimNodeKind]; value: SomeFloat): Matchin
   let valueFail  = arg.floatVal != float(value)
   if kindFail or valueFail:
     result.node = arg
-    result.kind = WrongValue
+    result.kind = WrongKindValue
     result.expectedKind  = kind
     result.expectedValue = newLit(value)
 
@@ -174,7 +174,7 @@ proc matchValue(arg: NimNode; kind: set[NimNodeKind]; value: string): MatchingEr
       arg.kind notin (kind * nnkStrValKinds) or arg.strVal != value
   if kindFail or valueFail:
     result.node = arg
-    result.kind = WrongValue
+    result.kind = WrongKindValue
     result.expectedKind  = kind
     result.expectedValue = newLit(value)
 
