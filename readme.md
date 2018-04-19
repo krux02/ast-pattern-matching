@@ -98,6 +98,15 @@ The grammar for the pattern matching looks like this:
     expressions is expected to evaluate to a ``NimNodeKind`` or
     ``set[NimNodeKind]`` and is used to mach the kind for an expression.
 
+## Examples
+
+when you pass a second argument to mach as, as in the following 
+example with `matchErrors`, this identifier will be usable in the 
+_else_ branch as a name for all error kinds. But please use this error 
+type only for debugging purpose. If for the sake of nice error messages 
+the type has to chage, it will be changed, please don't rely on 
+the strucuture of this type.
+
 
     matchAst(arg, matchErrors):
     of <pattern>: # branch A
@@ -113,6 +122,7 @@ The grammar for the pattern matching looks like this:
       echo matchErrors[1]
       echo "branch C could not match because:"
       echo matchErrors[2]
+
 
 When you leave out the else branch and there is only one of branch,
 you will get the nicest error message possible, why the pattern did
