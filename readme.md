@@ -62,7 +62,7 @@ The grammar for the pattern matching looks like this:
     I found a reliable way to disallow it.
 
   * Just literals like `123` will also match any literals with the
-    same value. so it would match on a literal such as `123`, but only
+    same value.  So it would match on a literal such as `123`, but not on
     literals of a different kind such as ``123'u32``.
 
   * `` `somename` @ <pattern> `` a named subtree. it matches on
@@ -100,11 +100,11 @@ The grammar for the pattern matching looks like this:
 
 ## Examples
 
-when you pass a second argument to mach as, as in the following 
-example with `matchErrors`, this identifier will be usable in the 
-_else_ branch as a name for all error kinds. But please use this error 
-type only for debugging purpose. If for the sake of nice error messages 
-the type has to chage, it will be changed, please don't rely on 
+When you pass a second argument to mach as, as in the following
+example with `matchErrors`, this identifier will be usable in the
+_else_ branch as a name for all error kinds. But please use this error
+type only for debugging purpose. If for the sake of nice error messages
+the type has to chage, it will be changed, please don't rely on
 the strucuture of this type.
 
 
