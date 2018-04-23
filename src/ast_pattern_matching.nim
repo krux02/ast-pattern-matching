@@ -365,6 +365,56 @@ macro matchAst*(ast: NimNode; args: varargs[untyped]): untyped =
 
   debug result.repr
 
+
+proc recursiveNodeVisiting(arg: NimNode, callback: proc(arg: NimNode): bool) =
+  if callback(arg):
+    for child in arg:
+      recursiveNodeVisiting(child, callback)
+
+
+macro matchAstRecursive*(ast: NimNode; args: varargs[untyped]): untyped =
+  if args[^1].kind == nnkElse:
+    error("Recursive matching with an else branch is pointless.", args[^1])
+
+  let visitor = genSym(nskProc, "visitor")
+  let visitorArg = genSym(nskParam, "arg")
+  let visitorStmtList = newStmtList()
+
+  let matchingSection = genSym(nskLabel, "matchingSection")
+
+  for ofBranch in args:
+    ofBranch.expectKind(nnkOfBranch)
+    let pattern = ofBranch[0]
+    let code = ofBranch[1]
+
+    let stmtList = newStmtList()
+    let matchingBranch = genSym(nskLabel, "matchingBranch")
+    let brachError = genSym(nskVar, "branchError")
+    generateMatchingCode(visitorArg, pattern, 0, matchingBranch, brachError, stmtList)
+    stmtList.add code
+    stmtList.add nnkBreakStmt.newTree(matchingSection)
+
+    visitorStmtList.add quote do:
+      var `brachError`: MatchingError
+      block `matchingBranch`:
+        `stmtList`
+
+
+  let resultIdent = ident"result"
+
+  let visitingProc = bindSym"recursiveNodeVisiting"
+
+  result = quote do:
+    proc `visitor`(`visitorArg`: NimNode): bool =
+      block `matchingSection`:
+        `visitorStmtList`
+        `resultIdent` = true
+
+    `visitingProc`(`ast`, `visitor`)
+
+  debug result.repr
+
+
 ################################################################################
 ################################# Example Code #################################
 ################################################################################
@@ -442,10 +492,25 @@ when isMainModule:
     of ident"[]":
       echo "ok"
 
-
     const myConst = 123
     ast = newLit(123)
 
     ast.matchAst:
     of _(intVal = myConst):
       echo "ok"
+
+    macro testRecCase(ast: untyped): untyped =
+      ast.matchAstRecursive:
+      of nnkIdentDefs(`a`,`b`,`c`):
+        echo "got ident defs a: ", a.repr, " b: ", b.repr, " c: ", c.repr
+      of ident"m":
+        echo "got the ident m"
+
+    testRecCase:
+      type Obj[T] = object {.inheritable.}
+        name: string
+        case isFat: bool
+        of true:
+          m: array[100_000, T]
+        of false:
+          m: array[10, T]
