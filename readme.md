@@ -140,9 +140,40 @@ not match.  Just try it out with this example:
       echo "the branch did match"
       echo "but I do know that is impossible"
 
+
+In this example, you see how recursive pattern matching can be used. 
+In Recursive pattern matching the ast is traversed recursively.
+So the patterns are not just matched againsd `arg`, but also against
+all of the children of `arg` and their children and so on.
+Recursion stops at nodes that are matched by a pattern.
+So it might make senes to add some empty ofBranches just to cut down the search space.
+But it does not make sense at all to add an else branch, because then it is just not possible anymore to do recursion at all.
+
+
+    import macros, ast_pattern_matching
+
+    macro foobar(arg: untyped): untyped =
+      arg.matchAstRecursive:
+      of nnkOfBranch( ident"false", `recList` ):
+        echo "got false record List: "
+        echo recList.treeRepr
+      of nnkOfBranch( ident"true", `recList` ):
+        echo "got true record List: "
+        echo recList.treeRepr
+
+
+    foobar:
+      type Obj[T] = object {.inheritable.}
+        name: string
+        case isFat: bool
+        of true:
+          m: array[100_000, T]
+        of false:
+          m: array[10, T]
+
+
 for more examples, take a look at the sourcecode. The file
 `tests/test1.nim` has a lot of examples that should you get started.
-
 
 ## discussion
 
