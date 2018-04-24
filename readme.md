@@ -192,5 +192,9 @@ handled in such optional pattern branches.
 if the parser allows it to add custom conditions to of branches, such
 as ``of <patter> if a > b:`` it will be implemented.
 
-
 The ast matching statement does not work as an expression (yet).
+
+A `matchAstFind` that would recursively search though
+the ast and stop at the first match would make sense. Here it would
+also be sane to use the else branch for the case that the entire ast
+does not have any match at all.
