@@ -54,7 +54,7 @@ The grammar for the pattern matching looks like this:
     not ``123'u32``.
 
   * `_(intVal = myConst)` matches any literal with the value of
-    `myConst`. This is the recommended way if you want to mach
+    `myConst`. This is the recommended way if you want to match
     constants. Currently the lhs side of the matching expression is
     completely ignored, so you could match strings with ``_(intVal =
     myStrConst)`` and the other way around. But please don't do
@@ -74,7 +74,7 @@ The grammar for the pattern matching looks like this:
     pattern does not match, an error will be raised.
 
   * `matchErrors` in the example above is used as an identifier for a
-    seq of match errors. it will be avalilable in the else branch as
+    seq of match errors. it will be available in the else branch as
     ``let matchErrors: seq[MatchingError]``. It's an optional argument
     and the purpose is to debug matching expressions.
 
@@ -89,23 +89,23 @@ The grammar for the pattern matching looks like this:
     identifier matching.
 
   * ``<expr>(...)`` any expression can be used to match for the
-    idintifier, as long as it is an expression that evaluates to
+    identifier, as long as it is an expression that evaluates to
     ``NimNodeKind`` or ``set[NimNodeKind]``. For example
     ``{nnkElifExpr, nnkElifBranch}(_)`` is a totally valid pattern to
     match for ``elif:``.
 
   * ``<expr>`` meaning any expression that is not one of the other
     expressions is expected to evaluate to a ``NimNodeKind`` or
-    ``set[NimNodeKind]`` and is used to mach the kind for an expression.
+    ``set[NimNodeKind]`` and is used to match the kind for an expression.
 
 ## Examples
 
-When you pass a second argument to mach as, as in the following
+When you pass a second argument to match as, as in the following
 example with `matchErrors`, this identifier will be usable in the
 _else_ branch as a name for all error kinds. But please use this error
 type only for debugging purpose. If for the sake of nice error messages
-the type has to chage, it will be changed, please don't rely on
-the strucuture of this type.
+the type has to change, it will be changed, please don't rely on
+the structure of this type.
 
 
     matchAst(arg, matchErrors):
@@ -142,13 +142,14 @@ not match.  Just try it out with this example:
 
 
 In this example, you see how recursive pattern matching can be used.
+
 In Recursive pattern matching the ast is traversed recursively.  So
-the patterns are not just matched againsd `arg`, but also against all
+the patterns are not just matched against `arg`, but also against all
 of the children of `arg` and their children and so on.  Recursion
 stops at nodes that are matched by a pattern.  So it might make sense
-to add some empty _of-branches_ just to cut down the search space.  But
-it does not make sense at all to add an else branch, because then it
-is just not possible anymore to do recursion at all.
+to add some empty _of-branches_ just to cut down the search space.
+But it does not make sense at all to add an else branch, because then
+it is just not possible anymore to do recursion at all.
 
 
     import macros, ast_pattern_matching
@@ -190,7 +191,7 @@ It would just raise the question how are named subexpressions are
 handled in such optional pattern branches.
 
 if the parser allows it to add custom conditions to of branches, such
-as ``of <patter> if a > b:`` it will be implemented.
+as ``of <pattern> if a > b:`` it will be implemented.
 
 The ast matching statement does not work as an expression (yet).
 
