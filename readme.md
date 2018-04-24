@@ -141,13 +141,14 @@ not match.  Just try it out with this example:
       echo "but I do know that is impossible"
 
 
-In this example, you see how recursive pattern matching can be used. 
-In Recursive pattern matching the ast is traversed recursively.
-So the patterns are not just matched againsd `arg`, but also against
-all of the children of `arg` and their children and so on.
-Recursion stops at nodes that are matched by a pattern.
-So it might make senes to add some empty ofBranches just to cut down the search space.
-But it does not make sense at all to add an else branch, because then it is just not possible anymore to do recursion at all.
+In this example, you see how recursive pattern matching can be used.
+In Recursive pattern matching the ast is traversed recursively.  So
+the patterns are not just matched againsd `arg`, but also against all
+of the children of `arg` and their children and so on.  Recursion
+stops at nodes that are matched by a pattern.  So it might make sense
+to add some empty _of-branches_ just to cut down the search space.  But
+it does not make sense at all to add an else branch, because then it
+is just not possible anymore to do recursion at all.
 
 
     import macros, ast_pattern_matching
@@ -171,6 +172,10 @@ But it does not make sense at all to add an else branch, because then it is just
         of false:
           m: array[10, T]
 
+Do not use `break` in `matchAstRecursive` yet, it is not implemented.
+The name `matchAstRecursive` is not final and it might get another
+name or syntax in the future, but this syntax will be kept for
+backwards compatibility.
 
 for more examples, take a look at the sourcecode. The file
 `tests/test1.nim` has a lot of examples that should you get started.
