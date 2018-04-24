@@ -333,7 +333,9 @@ macro matchAst*(ast: NimNode; args: varargs[untyped]): untyped =
     errorSymbols.add errorSym
     generateMatchingCode(ast, pattern, 0, blockLabel, errorSym, stmtList)
     stmtList.add code
-    stmtList.add nnkBreakStmt.newTree(outerBlockLabel)
+    # maybe there is a better mechanism disable errors for statement after return
+    if code[^1].kind != nnkReturnStmt:
+      stmtList.add nnkBreakStmt.newTree(outerBlockLabel)
 
     outerStmtList.add quote do:
       var `errorSym`: MatchingError
