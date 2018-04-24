@@ -358,8 +358,17 @@ macro matchAst*(ast: NimNode; args: varargs[untyped]): untyped =
       outerStmtList.add quote do:
         failWithMatchingError(`errorSym`)
     else:
+
+      var patterns: string = ""
+      for i in beginBranches ..< endBranches:
+        let ofBranch = args[i]
+        let pattern = ofBranch[0]
+        patterns.add pattern.repr
+        patterns.add "\n"
+
+      let patternsLit = newLit(patterns)
       outerStmtList.add quote do:
-        error("Ast does not match.", `ast`)
+        error("Ast pattern mismatch: got " & `ast`.lispRepr & "\nbut expected one of:\n" & `patternsLit`, `ast`)
 
   result = quote do:
     block `outerBlockLabel`:
