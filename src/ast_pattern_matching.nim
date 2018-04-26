@@ -325,8 +325,10 @@ macro matchAst*(ast: NimNode; args: varargs[untyped]): untyped =
     let ofBranch = args[i]
 
     ofBranch.expectKind(nnkOfBranch)
+    ofBranch.expectLen(2)
     let pattern = ofBranch[0]
     let code = ofBranch[1]
+    code.expectKind nnkStmtList
     let stmtList = newStmtList()
     let blockLabel = genSym(nskLabel, "matchingBranch")
     let errorSym = genSym(nskVar, "branchError")
@@ -395,8 +397,10 @@ macro matchAstRecursive*(ast: NimNode; args: varargs[untyped]): untyped =
 
   for ofBranch in args:
     ofBranch.expectKind(nnkOfBranch)
+    ofBranch.expectLen(2)
     let pattern = ofBranch[0]
     let code = ofBranch[1]
+    code.expectkind(nnkStmtList)
 
     let stmtList = newStmtList()
     let matchingBranch = genSym(nskLabel, "matchingBranch")
