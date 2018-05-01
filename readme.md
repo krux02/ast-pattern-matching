@@ -198,7 +198,8 @@ It would just raise the question how are named subexpressions are
 handled in such optional pattern branches.
 
 if the parser allows it to add custom conditions to of branches, such
-as ``of <pattern> if a > b:`` it will be implemented.
+as ``of <pattern> if a > b:`` it might replace the ``of <pattern> |= a
+> b`` syntax.
 
 The ast matching statement does not work as an expression (yet).
 
