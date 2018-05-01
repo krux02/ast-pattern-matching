@@ -96,7 +96,14 @@ The grammar for the pattern matching looks like this:
 
   * ``<expr>`` meaning any expression that is not one of the other
     expressions is expected to evaluate to a ``NimNodeKind`` or
-    ``set[NimNodeKind]`` and is used to match the kind for an expression.
+    ``set[NimNodeKind]`` and is used to match the kind for an
+    expression.
+
+  * ``<pattern> |= <cond>`` can be used to match for arbitrary
+    conditions. ``<cond>`` here needs to be an arbitrary expression of
+    type bool.  The operator here appears to be quite random, and it
+    is.  It has been chosen, because it has very low operator
+    precedence.
 
 ## Examples
 

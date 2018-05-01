@@ -1,7 +1,7 @@
 # ast_pattern_matching
 # Copyright Arne Döring
 # a general ast pattern matching library with a focus on correctness and good error messages
-# TODO arbitrary matching conditions with if
+# DONE arbitrary matching conditions with if ( it is the |= operator ).
 # TODO matchRepr
 # DONE make it a nimble package
 # DONE document match constant as literal
@@ -46,6 +46,7 @@ type
     WrongKindLength
     WrongKindValue
     WrongIdent
+    WrongCustomCondition
 
   MatchingError = object
     node*: NimNode
@@ -57,7 +58,7 @@ type
       expectedLength*: int
     of WrongKindValue:
       expectedValue*: NimNode
-    of WrongIdent:
+    of WrongIdent, WrongCustomCondition:
       strVal*: string
 
 proc `$`*(arg: MatchingError): string =
@@ -96,6 +97,9 @@ proc `$`*(arg: MatchingError): string =
       prefix & "`" & n.strVal & "`"
     else:
       prefix & $n.kind & " with " & $n.len & " child(ren)"
+  of WrongCustomCondition:
+    "custom condition check failed: " & arg.strVal
+
 
 proc failWithMatchingError*(arg: MatchingError): void {.compileTime, noReturn.} =
   error($arg, arg.node)
@@ -192,6 +196,12 @@ proc matchIdent*(arg:NimNode; value: string): MatchingError =
     result.kind = Wrongident
     result.strVal = value
 
+proc checkCustomExpr*(arg: NimNode; cond: bool, exprstr: string): MatchingError =
+  if not cond:
+    result.node = arg
+    result.kind = WrongCustomCondition
+    result.strVal = exprstr
+
 static:
   var literals: array[19, NimNode]
   var i = 0
@@ -219,6 +229,13 @@ proc generateMatchingCode(astSym: NimNode, pattern: NimNode, depth: int, blockLa
     proc genIdentMatchLogic(identValueLit: NimNode): void =
       result.add quote do:
         `errorSym` = `astSym`.matchIdent(`identValueLit`)
+        if `errorSym`.kind != NoError:
+          break `blockLabel`
+
+    proc genCustomMatchLogic(conditionExpr: NimNode): void =
+      let exprStr = newLit(conditionExpr.repr)
+      result.add quote do:
+        `errorSym` = `astSym`.checkCustomExpr(`conditionExpr`, `exprStr`)
         if `errorSym`.kind != NoError:
           break `blockLabel`
 
@@ -283,6 +300,10 @@ proc generateMatchingCode(astSym: NimNode, pattern: NimNode, depth: int, blockLa
 
       debug ind, pattern[1].repr, " = "
       nodeVisiting(matchedExpr, pattern[2], depth + 1)
+
+    elif pattern.kind == nnkInfix and pattern[0].eqIdent("|="):
+      nodeVisiting(astSym, pattern[1], depth + 1)
+      genCustomMatchLogic(pattern[2])
 
     elif pattern.kind in nnkCallKinds:
       error("only boring call syntax allowed, this is " & $pattern.kind & ".", pattern)
@@ -529,3 +550,17 @@ when isMainModule:
           m: array[100_000, T]
         of false:
           m: array[10, T]
+
+
+    macro testIfCondition(ast: untyped): untyped =
+      let literals = nnkBracket.newTree
+      ast.matchAstRecursive:
+      of `intLit` @ nnkIntLit |= intLit.intVal > 5:
+        literals.add intLit
+
+      let literals2 = quote do:
+        [6,7,8,9]
+
+      doAssert literals2 == literals
+
+    testIfCondition([1,6,2,7,3,8,4,9,5,0,"123"])
