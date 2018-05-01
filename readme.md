@@ -6,7 +6,7 @@
       _,
       _,
       nnkForStmt(
-        nnkIdent("i"),
+        ident"i",
         nnkInfix,
         `mysym` @ nnkStmtList
       )
