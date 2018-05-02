@@ -36,6 +36,11 @@ proc hInt(i: int): A =
 proc hString(s: string): A =
   A(kind: HString, s: s)
 
+proc `[]`(c: Container, offset: int): A =
+  if c.kind == CArray:
+    raise newException(ValueError, "CArray []")
+  else:
+    c.elements[offset]
 
 let container = A(
   kind: HContainer,
@@ -46,25 +51,6 @@ let container = A(
         kind: HInt,
         i: 0)]))
 
-
-# macro matchCapture*(a: A, t: type int): untyped =
-#   quote:
-#     `t` = `a`.i
-
-# proc matchType*(a: A, t: int): bool =
-#   a.i == t
-
-
-macro matchLit*(typ: typed, litType: typed, f: untyped): untyped =
-  discard
-
-
-macro matchArgs*(typ: typed, f: untyped): untyped =
-  discard
-
-macro match*(obj: typed, args: varargs[untyped]): untyped =
-  discard
-
 macro matchtest(s: untyped, test: untyped): untyped =
   result = quote:
     test `s`:
@@ -73,20 +59,42 @@ macro matchtest(s: untyped, test: untyped): untyped =
       checkpoint "didn't match variant"
       check expected
 
-template succeed: untyped =
-  expected {.inject.} = true
+macro succeed: untyped =
+  let expected = ident"expected"
+  result = quote:
+    `expected` = true
+
+matchLit A, int, HInt
+matchLit A, string, HString
+# Container.matchArgs elements # when we call with a, b .. we use elements
+
+
+
+# NimNode.matchArgs
+matchLitProperty NimNode, int, intVal
+matchLitProperty NimNode, string, strVal
+matchLitProperty NimNode, float, floatVal
+
+# macro a: untyped =
+#   let b = quote:
+#     f(4)
+#   b.match(e):
+#   of nnkCall(`f`, 4):
+#     echo "in"
+#   else:
+#     echo e[0]
+
+# a()
 
 suite "plan":
   matchtest "match different object":
-    container.match:
+    container.match(e):
     of HContainer(c: CSeq(elements: @[`value`])):
-      echo value
       check value.kind == HInt and value.i == 0
       succeed
     else:
       discard
 
-     
     # block match0:
     #   var error0: MatchingError
     #   block branch0:
@@ -118,8 +126,6 @@ suite "plan":
 
 
   matchtest "match variant literal":
-    A.matchLit int, HInt
-    A.matchLit string, HString
 
     var a = A(kind: HInt, i: 0)
     var b = A(kind: HString, s: "e")
@@ -128,17 +134,9 @@ suite "plan":
     of 0:
       succeed
     else:
-      discard
+      checkpoint("matchLit int")
+      fail()
 
-    # block match0:
-    #   var error0: MatchingError
-    #   block branch0:
-    #     if not (a.kind == HInt and a.i == 0):
-    #       error0 = ..
-    #       break branch0
-    #     succeed
-    #     break match0
-    #   discard
 
     b.match:
     of "f":
@@ -165,14 +163,12 @@ suite "plan":
     #   discard
 
   matchtest "match variant args with auto":
-    Container.matchArgs elements
-
     var a = Container(kind: CSeq, elements: @[A(kind: HInt, i: 2), A(kind: HInt, i: 4)])
-    a.match:
-    of CSeq(HInt(2), HInt(4)):
+    a.match(e):
+    of CSeq(Hint(i: 2), Hint(i: 4)):
       succeed
     else:
-      discard
+      checkpoint($e[0])
 
   matchtest "match normal objects":
     type
@@ -197,7 +193,8 @@ suite "plan":
       check last == 2
       succeed
     else:
-      discard
+      checkpoint("fail seq")
+      fail()
 
     # block match0:
     #   var error0: ..
@@ -214,14 +211,16 @@ suite "plan":
     #     check last == 2
     #     succeed
 
-    a.match:
+  matchtest "match variadic":
+    var a = @[0, 1, 2]
+    a.match(e):
     of @[`first`]:
       discard
-    of @[0, *`last`]:
+    of @[0, `last` @ *_]:
       check last == @[1, 2]
       succeed
     else:
-      discard
+      echo e
 
   matchtest "match array":
     var a = [0, 1, 2]

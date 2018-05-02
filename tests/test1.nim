@@ -2,6 +2,11 @@ import ast_pattern_matching
 
 # TODO test on matching failures
 
+# NimNode.matchArgs
+matchLitProperty NimNode, int, intVal
+matchLitProperty NimNode, string, strVal
+matchLitProperty NimNode, float, floatVal
+
 proc peelOff*(arg: NimNode, kinds: set[NimNodeKind]): NimNode {.compileTime.} =
   ## Peel off  nodes of a specific kinds.
   if arg.len == 1 and arg.kind in kinds:
@@ -19,19 +24,18 @@ proc peelOff*(arg: NimNode, kind: NimNodeKind): NimNode {.compileTime.} =
 static:
   template testPattern(pattern, astArg: untyped): untyped =
     let ast = quote do: `astArg`
-    ast.matchAst:
+    ast.match:
     of `pattern`:
       echo "ok"
 
   template testPatternFail(pattern, astArg: untyped): untyped =
     let ast = quote do: `astArg`
-    ast.matchAst:
+    ast.match:
     of `pattern`:
       error("this should not match", ast)
     else:
       echo "OK"
-
-
+  
   testPattern nnkIntLit(intVal = 42)            , 42
   testPattern nnkInt8Lit(intVal = 42)           , 42'i8
   testPattern nnkInt16Lit(intVal = 42)          , 42'i16
@@ -61,7 +65,7 @@ static:
     let ast = quote do:
       echo "abc", "xyz"
 
-    ast.matchAst:
+    ast.match:
     of nnkCommand(ident"echo", "abc", "xyz"):
       echo "ok"
 
@@ -71,7 +75,7 @@ static:
     let ast = quote do:
       echo("abc", "xyz")
 
-    ast.matchAst:
+    ast.match:
     of nnkCall(ident"echo", "abc", "xyz"):
       echo "ok"
 
@@ -81,7 +85,7 @@ static:
   macro testInfixOperatorCall(ast: untyped): untyped =
 
 
-    ast.matchAst(errorSym):
+    ast.match(errorSym):
     of nnkInfix(
       ident"&",
       nnkStrLit(strVal = "abc"),
@@ -119,7 +123,7 @@ static:
     let ast = quote do:
       ? "xyz"
 
-    ast.matchAst(err):
+    ast.match(err):
     of nnkPrefix(
       ident"?",
       nnkStrLit(strVal = "xyz")
@@ -134,7 +138,7 @@ static:
     let ast = quote do:
       proc identifier*
 
-    ast[0].matchAst(err):
+    ast[0].match(err):
     of nnkPostfix(
       ident"*",
       ident"identifier"
@@ -142,10 +146,10 @@ static:
       echo "ok"
 
 
-  ## Call with named arguments
+  # ## Call with named arguments
 
   macro testCallWithNamedArguments(ast: untyped): untyped =
-    ast.peelOff(nnkStmtList).matchAst:
+    ast.peelOff(nnkStmtList).match:
     of nnkCall(
       ident"writeLine",
       nnkExprEqExpr(
@@ -165,7 +169,7 @@ static:
       echo"abc"
 
 
-    ast.matchAst(err):
+    ast.match(err):
     of nnkCallStrLit(
       ident"echo",
       nnkRStrLit(strVal = "abc")
@@ -177,7 +181,7 @@ static:
   block:
     # The dereferece operator exists only on a typed ast.
     macro testDereferenceOperator(ast: typed): untyped =
-      ast.matchAst(err):
+      ast.match(err):
       of nnkDerefExpr(_):
         echo "ok"
 
@@ -191,7 +195,7 @@ static:
   block:
     # The addr operator exists only on a typed ast.
     macro testAddrOperator(ast: typed): untyped =
-      ast.matchAst(err):
+      ast.match(err):
       of nnkAddr(ident"x"):
         echo "ok"
 
@@ -206,7 +210,7 @@ static:
     let ast = quote do:
       cast[T](x)
 
-    ast.matchAst:
+    ast.match:
     of nnkCast(ident"T", ident"x"):
       echo "ok"
 
@@ -218,14 +222,14 @@ static:
     let ast = quote do:
       x.y
 
-    ast.matchAst:
+    ast.match:
     of nnkDotExpr(ident"x", ident"y"):
       echo "ok"
 
   ## Array access operator ``[]``
 
   macro testArrayAccessOperator(ast: untyped): untyped =
-    ast.matchAst:
+    ast.match:
     of nnkBracketExpr(ident"x", ident"y"):
       echo "ok"
 
@@ -240,7 +244,7 @@ static:
     let ast = quote do:
       (1, 2, (3))
 
-    ast.matchAst:
+    ast.match:
     of nnkPar(nnkIntLit(intVal = 1), nnkIntLit(intVal = 2), nnkPar(nnkIntLit(intVal = 3))):
       echo "ok"
 
@@ -252,7 +256,7 @@ static:
     let ast = quote do:
       {1, 2, 3}
 
-    ast.matchAst:
+    ast.match:
     of nnkCurly(nnkIntLit(intVal = 1), nnkIntLit(intVal = 2), nnkIntLit(intVal = 3)):
       echo "ok"
 
@@ -261,7 +265,7 @@ static:
     let ast = quote do:
       {a: 3, b: 5}
 
-    ast.matchAst:
+    ast.match:
     of nnkTableConstr(
       nnkExprColonExpr(ident"a", nnkIntLit(intVal = 3)),
       nnkExprColonExpr(ident"b", nnkIntLit(intVal = 5))
@@ -276,7 +280,7 @@ static:
     let ast = quote do:
       [1, 2, 3]
 
-    ast.matchAst:
+    ast.match:
     of nnkBracket(nnkIntLit(intVal = 1), nnkIntLit(intVal = 2), nnkIntLit(intVal = 3)):
       echo "ok"
 
@@ -288,7 +292,7 @@ static:
     let ast = quote do:
       1..3
 
-    ast.matchAst:
+    ast.match:
     of nnkInfix(
       ident"..",
       nnkIntLit(intVal = 1),
@@ -304,7 +308,7 @@ static:
     let ast = quote do:
       if cond1: expr1 elif cond2: expr2 else: expr3
 
-    ast.matchAst:
+    ast.match:
     of {nnkIfExpr, nnkIfStmt}(
       {nnkElifExpr, nnkElifBranch}(`cond1`, `expr1`),
       {nnkElifExpr, nnkElifBranch}(`cond2`, `expr2`),
@@ -322,7 +326,7 @@ static:
       stmt1
       ## Yet another
 
-    ast.matchAst:
+    ast.match:
     of nnkStmtList(
       nnkCommentStmt(),
       `stmt1`,
@@ -338,7 +342,7 @@ static:
     let ast = quote do:
       {.emit: "#include <stdio.h>".}
 
-    ast.matchAst:
+    ast.match:
     of nnkPragma(
       nnkExprColonExpr(
         ident"emit",
@@ -353,7 +357,7 @@ static:
     let ast = quote do:
       {.pragma: cdeclRename, cdecl.}
 
-    ast.matchAst:
+    ast.match:
     of nnkPragma(
       nnkExprColonExpr(
         ident"pragma", # this is always first when declaring a new pragma
@@ -378,7 +382,7 @@ static:
       else:
         stmt4
 
-    ast.matchAst:
+    ast.match:
     of nnkIfStmt(
       nnkElifBranch(`cond1`, `stmt1`),
       nnkElifBranch(`cond2`, `stmt2`),
@@ -395,7 +399,7 @@ static:
     let ast = quote do:
       x = 42
 
-    ast.matchAst:
+    ast.match:
     of nnkAsgn(ident"x", nnkIntLit(intVal = 42)):
       echo "ok"
 
@@ -409,7 +413,7 @@ static:
       stmt2
       stmt3
 
-    ast.matchAst:
+    ast.match:
     of nnkStmtList(`stmt1`, `stmt2`, `stmt3`):
       assert stmt1.strVal == "stmt1"
       assert stmt2.strVal == "stmt2"
@@ -431,7 +435,7 @@ static:
       else:
         stmt4
 
-    ast.matchAst:
+    ast.match:
     of nnkCaseStmt(
       `expr1`,
       nnkOfBranch(`expr2`, {nnkRange, nnkInfix}(_, `expr3`, `expr4`), `stmt1`),
@@ -449,7 +453,7 @@ static:
       while expr1:
         stmt1
 
-    ast.matchAst:
+    ast.match:
     of nnkWhileStmt(`expr1`, `stmt1`):
       echo "ok"
 
@@ -462,7 +466,7 @@ static:
       for ident1, ident2 in expr1:
         stmt1
 
-    ast.matchAst:
+    ast.match:
     of nnkForStmt(`ident1`, `ident2`, `expr1`, `stmt1`):
       echo "ok"
 
@@ -483,7 +487,7 @@ static:
       finally:
         stmt5
 
-    ast.matchAst:
+    ast.match:
     of nnkTryStmt(
       `stmt1`,
       nnkExceptBranch(`e1`, `e2`, `stmt2`),
@@ -501,7 +505,7 @@ static:
     let ast = quote do:
       return expr1
 
-    ast.matchAst:
+    ast.match:
     of nnkReturnStmt(`expr1`):
       echo "ok"
 
@@ -512,7 +516,7 @@ static:
     let ast = quote do:
       continue
 
-    ast.matchAst:
+    ast.match:
     of nnkContinueStmt:
       echo "ok"
 
@@ -523,7 +527,7 @@ static:
     let ast = quote do:
       break otherLocation
 
-    ast.matchAst:
+    ast.match:
     of nnkBreakStmt(ident"otherLocation"):
       echo "ok"
 
@@ -535,7 +539,7 @@ static:
       block name:
         discard
 
-    ast.matchAst:
+    ast.match:
     of nnkBlockStmt(ident"name", nnkStmtList):
       echo "ok"
 
@@ -546,7 +550,7 @@ static:
     let ast = quote do:
       asm """some asm"""
 
-    ast.matchAst:
+    ast.match:
     of nnkAsmStmt(
       nnkEmpty(), # for pragmas
       nnkTripleStrLit(strVal = "some asm"),
@@ -560,7 +564,7 @@ static:
     let ast = quote do:
       import math
 
-    ast.matchAst:
+    ast.match:
     of nnkImportStmt(ident"math"):
       echo "ok"
 
@@ -569,7 +573,7 @@ static:
     let ast = quote do:
       import math except pow
 
-    ast.matchAst:
+    ast.match:
     of nnkImportExceptStmt(ident"math",ident"pow"):
       echo "ok"
 
@@ -578,7 +582,7 @@ static:
     let ast = quote do:
       import strutils as su
 
-    ast.matchAst:
+    ast.match:
     of nnkImportStmt(
       nnkInfix(
         ident"as",
@@ -595,7 +599,7 @@ static:
     let ast = quote do:
       from math import pow
 
-    ast.matchAst:
+    ast.match:
     of nnkFromStmt(ident"math", ident"pow"):
       echo "ok"
 
@@ -606,7 +610,7 @@ static:
     let ast = quote do:
       export unsigned
 
-    ast.matchAst:
+    ast.match:
     of nnkExportStmt(ident"unsigned"):
       echo "ok"
 
@@ -615,7 +619,7 @@ static:
     let ast = quote do:
       export math except pow # we're going to implement our own exponentiation
 
-    ast.matchAst:
+    ast.match:
     of nnkExportExceptStmt(ident"math",ident"pow"):
       echo "ok"
 
@@ -626,7 +630,7 @@ static:
     let ast = quote do:
       include blocks
 
-    ast.matchAst:
+    ast.match:
     of nnkIncludeStmt(ident"blocks"):
       echo "ok"
 
@@ -637,7 +641,7 @@ static:
     let ast = quote do:
       var a = 3
 
-    ast.matchAst:
+    ast.match:
     of nnkVarSection(
       nnkIdentDefs(
         ident"a",
@@ -654,7 +658,7 @@ static:
     let ast = quote do:
       let a = 3
 
-    ast.matchAst:
+    ast.match:
     of nnkLetSection(
       nnkIdentDefs(
         ident"a",
@@ -671,7 +675,7 @@ static:
     let ast = quote do:
       const a = 3
 
-    ast.matchAst:
+    ast.match:
     of nnkConstSection(
       nnkConstDef( # not nnkConstDefs!
         ident"a",
@@ -688,7 +692,7 @@ static:
     let ast = quote do:
       type A = int
 
-    ast.matchAst:
+    ast.match:
     of nnkTypeSection(
       nnkTypeDef(
         ident"A",
@@ -703,7 +707,7 @@ static:
     let ast = quote do:
       type MyInt = distinct int
 
-    ast.peelOff({nnkTypeSection}).matchAst:
+    ast.peelOff({nnkTypeSection}).match:
     of# ...
       nnkTypeDef(
       ident"MyInt",
@@ -719,7 +723,7 @@ static:
     let ast = quote do:
       type A[T] = expr1
 
-    ast.matchAst:
+    ast.match:
     of nnkTypeSection(
       nnkTypeDef(
         ident"A",
@@ -741,7 +745,7 @@ static:
     let ast = quote do:
       type IO = object of RootObj
 
-    ast.peelOff(nnkTypeSection).matchAst:
+    ast.peelOff(nnkTypeSection).match:
     of nnkTypeDef(
       ident"IO",
       nnkEmpty(),
@@ -757,7 +761,7 @@ static:
 
   block:
     macro testRecCase(ast: untyped): untyped =
-      ast.peelOff({nnkStmtList, nnkTypeSection})[2].matchAst:
+      ast.peelOff({nnkStmtList, nnkTypeSection})[2].match:
       of nnkObjectTy(
         nnkPragma(
           ident"inheritable"
@@ -825,7 +829,7 @@ static:
       type X = enum
         First
 
-    ast.peelOff({nnkStmtList, nnkTypeSection})[2].matchAst:
+    ast.peelOff({nnkStmtList, nnkTypeSection})[2].match:
     of nnkEnumTy(
       nnkEmpty(),
       ident"First" # you need at least one nnkIdent or the compiler complains
@@ -838,7 +842,7 @@ static:
       type Con = concept x,y,z
         (x & y & z) is string
 
-    ast.peelOff({nnkStmtList, nnkTypeSection}).matchAst:
+    ast.peelOff({nnkStmtList, nnkTypeSection}).match:
     of nnkTypeDef(_, _, nnkTypeClassTy(nnkArgList, _, _, nnkStmtList)):
       # note this isn't nnkConceptTy!
       echo "ok"
@@ -852,7 +856,7 @@ static:
 
     let ast = astX.peelOff({nnkStmtList, nnkTypeSection})
 
-    ast.matchAst(err):  # this is a sub ast for this a findAst or something like that is useful
+    ast.match(err):  # this is a sub ast for this a findAst or something like that is useful
     of nnkTypeDef(_, nnkGenericParams( nnkIdentDefs( ident"T", nnkStaticTy( _ ), nnkEmpty )), _):
       echo "ok"
 
@@ -860,7 +864,7 @@ static:
     let ast = quote do:
       type MyProc[T] = proc(x: T)
 
-    ast.peelOff({nnkStmtList, nnkTypeSection}).matchAst(err):
+    ast.peelOff({nnkStmtList, nnkTypeSection}).match(err):
     of nnkTypeDef(
       ident"MyProc",
       nnkGenericParams, # here, not with the proc
@@ -873,7 +877,7 @@ static:
   ## Mixin statement
 
   macro testMixinStatement(ast: untyped): untyped =
-    ast.peelOff(nnkStmtList).matchAst:
+    ast.peelOff(nnkStmtList).match:
     of nnkMixinStmt(ident"x"):
       echo "ok"
 
@@ -884,7 +888,7 @@ static:
 
 
   macro testBindStmt(ast: untyped): untyped =
-    ast[0].matchAst:
+    ast[0].match:
     of `node` @ nnkBindStmt(ident"x"):
       echo "ok"
 
@@ -896,7 +900,7 @@ static:
   macro testProcedureDeclaration(ast: untyped): untyped =
     # NOTE this is wrong in astdef
 
-    ast.peelOff(nnkStmtList).matchAst:
+    ast.peelOff(nnkStmtList).match:
     of nnkProcDef(
       nnkPostfix(ident"*", ident"hello"), # the exported proc name
       nnkEmpty, # patterns for term rewriting in templates and macros (not procs)
@@ -935,7 +939,7 @@ static:
 
     ast = ast[3]
 
-    ast.matchAst:  # sub expression
+    ast.match:  # sub expression
     of nnkFormalParams(
       _, # return would be here
       nnkIdentDefs(
@@ -952,7 +956,7 @@ static:
     let ast = quote do:
       proc hello(): var int
 
-    ast[3].matchAst: # subAst
+    ast[3].match: # subAst
     of nnkFormalParams(
       nnkVarTy(
         ident"int"
@@ -968,7 +972,7 @@ static:
       iterator nonsense[T](x: seq[T]): float {.closure.} =
         discard
 
-    ast.matchAst:
+    ast.match:
     of nnkIteratorDef(ident"nonsense", nnkEmpty, _, _, _, _, _):
       echo "ok"
 
@@ -979,7 +983,7 @@ static:
     let ast = quote do:
       converter toBool(x: float): bool
 
-    ast.matchAst:
+    ast.match:
     of nnkConverterDef(ident"toBool",_,_,_,_,_,_):
       echo "ok"
 
@@ -989,6 +993,6 @@ static:
     let ast = quote do:
       template optOpt{expr1}(a: int): int
 
-    ast.matchAst:
+    ast.match:
     of nnkTemplateDef(ident"optOpt", nnkStmtList(`expr1`), _, _, _, _, _):
       echo "ok"
