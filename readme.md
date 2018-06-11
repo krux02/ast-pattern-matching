@@ -20,10 +20,10 @@
 
 
 `matchAst` is where the magic happens. In the of-branch is a tree that
-can at any time be generated via `lispRepr` on an arbitrary
-`NimNode`. But the pattern language also allows for some additional
-constructs, to widen the possibilities of the pattern.
-
+is close to the output of `lispRepr` on an arbitrary `NimNode`.  But
+it is not quite the same, for example the node kinds still have the
+nnk-Prefix for the node kinds. The pattern language also has some
+additional constructs, to widen the possibilities of the pattern.
 
 The grammar for the pattern matching looks like this:
 
