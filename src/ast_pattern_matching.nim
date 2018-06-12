@@ -10,6 +10,7 @@
 # DONE ident matching
 # DONE join WrongLengthKind
 # DONE resolue ambiguety
+# DONE ensure that the argument symbol is not evaluated several times
 
 import macros, strutils, tables
 
@@ -318,7 +319,8 @@ proc generateMatchingCode(astSym: NimNode, pattern: NimNode, depth: int, blockLa
 
   nodeVisiting(astSym, pattern, depth)
 
-macro matchAst*(ast: NimNode; args: varargs[untyped]): untyped =
+macro matchAst*(astExpr: NimNode; args: varargs[untyped]): untyped =
+  let astSym = genSym(nskLet, "ast")
   let beginBranches = if args[0].kind == nnkIdent: 1 else: 0
   let endBranches   = if args[^1].kind == nnkElse: args.len - 1 else: args.len
   for i in beginBranches ..< endBranches:
@@ -354,7 +356,7 @@ macro matchAst*(ast: NimNode; args: varargs[untyped]): untyped =
     let blockLabel = genSym(nskLabel, "matchingBranch")
     let errorSym = genSym(nskVar, "branchError")
     errorSymbols.add errorSym
-    generateMatchingCode(ast, pattern, 0, blockLabel, errorSym, stmtList)
+    generateMatchingCode(astSym, pattern, 0, blockLabel, errorSym, stmtList)
     stmtList.add code
     # maybe there is a better mechanism disable errors for statement after return
     if code[^1].kind != nnkReturnStmt:
@@ -391,10 +393,11 @@ macro matchAst*(ast: NimNode; args: varargs[untyped]): untyped =
 
       let patternsLit = newLit(patterns)
       outerStmtList.add quote do:
-        error("Ast pattern mismatch: got " & `ast`.lispRepr & "\nbut expected one of:\n" & `patternsLit`, `ast`)
+        error("Ast pattern mismatch: got " & `astSym`.lispRepr & "\nbut expected one of:\n" & `patternsLit`, `astSym`)
 
   result = quote do:
     block `outerBlockLabel`:
+      let `astSym` = `astExpr`
       `outerStmtList`
 
   debug result.repr
