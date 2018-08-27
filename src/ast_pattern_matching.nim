@@ -216,26 +216,29 @@ static:
 
   let identifierKinds = newLit({nnkSym, nnkIdent, nnkOpenSymChoice, nnkClosedSymChoice})
 
-proc generateMatchingCode(astSym: NimNode, pattern: NimNode, depth: int, blockLabel, errorSym: NimNode; result: NimNode): void =
+proc generateMatchingCode(astSym: NimNode, pattern: NimNode, depth: int, blockLabel, errorSym, localsArraySym: NimNode; dest: NimNode): int =
+  ## return the number of indices used in the array for local variables.
+
+  var currentLocalIndex = 0
 
   proc nodeVisiting(astSym: NimNode, pattern: NimNode, depth: int): void =
     let ind = "  ".repeat(depth) # indentation
 
     proc genMatchLogic(matchProc, argSym1, argSym2: NimNode): void =
-      result.add quote do:
+      dest.add quote do:
         `errorSym` = `astSym`.`matchProc`(`argSym1`, `argSym2`)
         if `errorSym`.kind != NoError:
           break `blockLabel`
 
     proc genIdentMatchLogic(identValueLit: NimNode): void =
-      result.add quote do:
+      dest.add quote do:
         `errorSym` = `astSym`.matchIdent(`identValueLit`)
         if `errorSym`.kind != NoError:
           break `blockLabel`
 
     proc genCustomMatchLogic(conditionExpr: NimNode): void =
       let exprStr = newLit(conditionExpr.repr)
-      result.add quote do:
+      dest.add quote do:
         `errorSym` = `astSym`.checkCustomExpr(`conditionExpr`, `exprStr`)
         if `errorSym`.kind != NoError:
           break `blockLabel`
@@ -271,10 +274,11 @@ proc generateMatchingCode(astSym: NimNode, pattern: NimNode, depth: int, blockLa
         genMatchLogic(bindSym"matchLengthKind", kindSet, lengthLit)
 
         for i in 1 ..< pattern.len:
-          let childSym = genSym(nskLet)
+          let childSym = nnkBracketExpr.newTree(localsArraySym, newLit(currentLocalIndex))
+          currentLocalIndex += 1
           let indexLit = newLit(i - 1)
-          result.add quote do:
-            let `childSym` = `astSym`[`indexLit`]
+          dest.add quote do:
+            `childSym` = `astSym`[`indexLit`]
           nodeVisiting(childSym, pattern[i], depth + 1)
       debug ind, ")"
     elif pattern.kind == nnkCallStrLit and pattern[0].eqIdent("ident"):
@@ -288,7 +292,7 @@ proc generateMatchingCode(astSym: NimNode, pattern: NimNode, depth: int, blockLa
       debug ind, pattern.repr
       let matchedExpr = pattern[0]
       matchedExpr.expectKind nnkIdent
-      result.add quote do:
+      dest.add quote do:
         let `matchedExpr` = `astSym`
 
     elif pattern.kind == nnkInfix and pattern[0].eqIdent("@"):
@@ -296,7 +300,7 @@ proc generateMatchingCode(astSym: NimNode, pattern: NimNode, depth: int, blockLa
 
       let matchedExpr = pattern[1][0]
       matchedExpr.expectKind nnkIdent
-      result.add quote do:
+      dest.add quote do:
         let `matchedExpr` = `astSym`
 
       debug ind, pattern[1].repr, " = "
@@ -318,6 +322,8 @@ proc generateMatchingCode(astSym: NimNode, pattern: NimNode, depth: int, blockLa
       genMatchLogic(bindSym"matchLengthKind", pattern, newLit(-1))
 
   nodeVisiting(astSym, pattern, depth)
+
+  return currentLocalIndex
 
 macro matchAst*(astExpr: NimNode; args: varargs[untyped]): untyped =
   let astSym = genSym(nskLet, "ast")
@@ -344,6 +350,13 @@ macro matchAst*(astExpr: NimNode; args: varargs[untyped]): untyped =
   let outerStmtList = newStmtList()
   let errorSymbols = nnkBracket.newTree
 
+  ## the vm only allows 255 local variables. This sucks a lot and I
+  ## have to work around it.  So instead of creating a lot of local
+  ## variables, I just create one array of local variables. This is
+  ## just annoying.
+  let localsArraySym = genSym(nskVar, "locals")
+  var localsArrayLen: int = 0
+
   for i in beginBranches ..< endBranches:
     let ofBranch = args[i]
 
@@ -355,8 +368,10 @@ macro matchAst*(astExpr: NimNode; args: varargs[untyped]): untyped =
     let stmtList = newStmtList()
     let blockLabel = genSym(nskLabel, "matchingBranch")
     let errorSym = genSym(nskVar, "branchError")
+
     errorSymbols.add errorSym
-    generateMatchingCode(astSym, pattern, 0, blockLabel, errorSym, stmtList)
+    let numLocalsUsed = generateMatchingCode(astSym, pattern, 0, blockLabel, errorSym, localsArraySym, stmtList)
+    localsArrayLen = max(localsArrayLen, numLocalsUsed)
     stmtList.add code
     # maybe there is a better mechanism disable errors for statement after return
     if code[^1].kind != nnkReturnStmt:
@@ -395,21 +410,24 @@ macro matchAst*(astExpr: NimNode; args: varargs[untyped]): untyped =
       outerStmtList.add quote do:
         error("Ast pattern mismatch: got " & `astSym`.lispRepr & "\nbut expected one of:\n" & `patternsLit`, `astSym`)
 
+  let lengthLit = newLit(localsArrayLen)
   result = quote do:
     block `outerBlockLabel`:
       let `astSym` = `astExpr`
+      var `localsArraySym`: array[`lengthLit`, NimNode]
       `outerStmtList`
 
   debug result.repr
 
-
-proc recursiveNodeVisiting(arg: NimNode, callback: proc(arg: NimNode): bool) =
+proc recursiveNodeVisiting*(arg: NimNode, callback: proc(arg: NimNode): bool) =
+  ## if `callback` returns true, visitor continues to visit the
+  ## children of `arg` otherwise it stops.
   if callback(arg):
     for child in arg:
       recursiveNodeVisiting(child, callback)
 
-
 macro matchAstRecursive*(ast: NimNode; args: varargs[untyped]): untyped =
+  ## Does not recurse further on matched nodes.
   if args[^1].kind == nnkElse:
     error("Recursive matching with an else branch is pointless.", args[^1])
 
@@ -418,6 +436,9 @@ macro matchAstRecursive*(ast: NimNode; args: varargs[untyped]): untyped =
   let visitorStmtList = newStmtList()
 
   let matchingSection = genSym(nskLabel, "matchingSection")
+
+  let localsArraySym = genSym(nskVar, "locals")
+  var localsArrayLen = 0
 
   for ofBranch in args:
     ofBranch.expectKind(nnkOfBranch)
@@ -429,12 +450,16 @@ macro matchAstRecursive*(ast: NimNode; args: varargs[untyped]): untyped =
     let stmtList = newStmtList()
     let matchingBranch = genSym(nskLabel, "matchingBranch")
     let brachError = genSym(nskVar, "branchError")
-    generateMatchingCode(visitorArg, pattern, 0, matchingBranch, brachError, stmtList)
+    let numLocalsUsed = generateMatchingCode(visitorArg, pattern, 0, matchingBranch, brachError, localsArraySym, stmtList)
+    localsArrayLen = max(localsArrayLen, numLocalsUsed)
+
     stmtList.add code
     stmtList.add nnkBreakStmt.newTree(matchingSection)
 
+    let lengthLit = newLit(localsArrayLen)
     visitorStmtList.add quote do:
       var `brachError`: MatchingError
+      var `localsArraySym`: array[`lengthLit`, NimNode]
       block `matchingBranch`:
         `stmtList`
 
@@ -483,10 +508,10 @@ when isMainModule:
       echo "The AST did match!!!"
       echo "The matched sub tree is the following:"
       echo mysym.lispRepr
-    else:
-      echo "sadly the AST did not match :("
-      echo arg.treeRepr
-      failWithMatchingError(matchError[1])
+    #else:
+    #  echo "sadly the AST did not match :("
+    #  echo arg.treeRepr
+    #  failWithMatchingError(matchError[1])
 
   foo:
     let a = 123
