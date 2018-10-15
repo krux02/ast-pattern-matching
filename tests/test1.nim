@@ -54,9 +54,19 @@ static:
   testPatternFail nnkInt8Lit(intVal = 42)           , 42'i16
   testPatternFail nnkInt16Lit(intVal = 42)          , 42'i8
 
+
+# this should be just `block` but it doesn't work that way anymore because of VM.
+macro scope(arg: untyped): untyped =
+  let procSym = genSym(nskProc)
+  result = quote do:
+    proc `procSym`(): void {.compileTime.} =
+      `arg`
+
+    `procSym`()
+
 static:
   ## Command call
-  block:
+  scope:
 
     let ast = quote do:
       echo "abc", "xyz"
@@ -67,7 +77,7 @@ static:
 
   ## Call with ``()``
 
-  block call:
+  scope:
     let ast = quote do:
       echo("abc", "xyz")
 
@@ -75,12 +85,9 @@ static:
     of nnkCall(ident"echo", "abc", "xyz"):
       echo "ok"
 
-
   ## Infix operator call
 
   macro testInfixOperatorCall(ast: untyped): untyped =
-
-
     ast.matchAst(errorSym):
     of nnkInfix(
       ident"&",
@@ -114,7 +121,7 @@ static:
 
   ## Prefix operator call
 
-  block:
+  scope:
 
     let ast = quote do:
       ? "xyz"
@@ -129,7 +136,7 @@ static:
 
   ## Postfix operator call
 
-  block:
+  scope:
 
     let ast = quote do:
       proc identifier*
@@ -160,7 +167,7 @@ static:
     writeLine(file=stdout, "hallo")
 
   ## Call with raw string literal
-  block:
+  scope:
     let ast = quote do:
       echo"abc"
 
@@ -174,7 +181,7 @@ static:
 
   ## Dereference operator ``[]``
 
-  block:
+  scope:
     # The dereferece operator exists only on a typed ast.
     macro testDereferenceOperator(ast: typed): untyped =
       ast.matchAst(err):
@@ -188,7 +195,7 @@ static:
 
   ## Addr operator
 
-  block:
+  scope:
     # The addr operator exists only on a typed ast.
     macro testAddrOperator(ast: typed): untyped =
       ast.matchAst(err):
@@ -201,7 +208,7 @@ static:
 
   ## Cast operator
 
-  block:
+  scope:
 
     let ast = quote do:
       cast[T](x)
@@ -213,7 +220,7 @@ static:
 
   ## Object access operator ``.``
 
-  block:
+  scope:
 
     let ast = quote do:
       x.y
@@ -235,7 +242,7 @@ static:
 
   ## Parentheses
 
-  block:
+  scope:
 
     let ast = quote do:
       (1, 2, (3))
@@ -247,7 +254,7 @@ static:
 
   ## Curly braces
 
-  block:
+  scope:
 
     let ast = quote do:
       {1, 2, 3}
@@ -256,7 +263,7 @@ static:
     of nnkCurly(nnkIntLit(intVal = 1), nnkIntLit(intVal = 2), nnkIntLit(intVal = 3)):
       echo "ok"
 
-  block:
+  scope:
 
     let ast = quote do:
       {a: 3, b: 5}
@@ -271,7 +278,7 @@ static:
 
   ## Brackets
 
-  block:
+  scope:
 
     let ast = quote do:
       [1, 2, 3]
@@ -283,7 +290,7 @@ static:
 
   ## Ranges
 
-  block:
+  scope:
 
     let ast = quote do:
       1..3
@@ -299,7 +306,7 @@ static:
 
   ## If expression
 
-  block:
+  scope:
 
     let ast = quote do:
       if cond1: expr1 elif cond2: expr2 else: expr3
@@ -314,7 +321,7 @@ static:
 
   ## Documentation Comments
 
-  block:
+  scope:
 
     let ast = quote do:
       ## This is a comment
@@ -332,7 +339,7 @@ static:
 
 
 
-  block:
+  scope:
     echo "Pragmas 1 "
 
     let ast = quote do:
@@ -347,7 +354,7 @@ static:
     ):
       echo "ok"
 
-  block:
+  scope:
     echo "Pragmas 2 "
 
     let ast = quote do:
@@ -365,7 +372,7 @@ static:
 
 
 
-  block:
+  scope:
     echo "If statement"
 
     let ast = quote do:
@@ -389,7 +396,7 @@ static:
 
 
 
-  block:
+  scope:
     echo "Assignment:"
 
     let ast = quote do:
@@ -401,7 +408,7 @@ static:
 
 
 
-  block:
+  scope:
     echo "Statement list"
 
     let ast = quote do:
@@ -418,7 +425,7 @@ static:
 
   ## Case statement
 
-  block:
+  scope:
 
     let ast = quote do:
       case expr1
@@ -443,7 +450,7 @@ static:
 
   ## While statement
 
-  block:
+  scope:
 
     let ast = quote do:
       while expr1:
@@ -456,7 +463,7 @@ static:
 
   ## For statement
 
-  block:
+  scope:
 
     let ast = quote do:
       for ident1, ident2 in expr1:
@@ -469,7 +476,7 @@ static:
 
   ## Try statement
 
-  block:
+  scope:
 
     let ast = quote do:
       try:
@@ -496,7 +503,7 @@ static:
 
   ## Return statement
 
-  block:
+  scope:
 
     let ast = quote do:
       return expr1
@@ -508,7 +515,7 @@ static:
 
   ## Continue statement
 
-  block:
+  scope:
     let ast = quote do:
       continue
 
@@ -518,7 +525,7 @@ static:
 
   ## Break statement
 
-  block:
+  scope:
 
     let ast = quote do:
       break otherLocation
@@ -529,7 +536,7 @@ static:
 
   ## Block statement
 
-  block:
+  scope:
 
     let ast = quote do:
       block name:
@@ -541,7 +548,7 @@ static:
 
   ## Asm statement
 
-  block:
+  scope:
 
     let ast = quote do:
       asm """some asm"""
@@ -555,7 +562,7 @@ static:
 
   ## Import section
 
-  block:
+  scope:
 
     let ast = quote do:
       import math
@@ -564,7 +571,7 @@ static:
     of nnkImportStmt(ident"math"):
       echo "ok"
 
-  block:
+  scope:
 
     let ast = quote do:
       import math except pow
@@ -573,7 +580,7 @@ static:
     of nnkImportExceptStmt(ident"math",ident"pow"):
       echo "ok"
 
-  block:
+  scope:
 
     let ast = quote do:
       import strutils as su
@@ -590,7 +597,7 @@ static:
 
   ## From statement
 
-  block:
+  scope:
 
     let ast = quote do:
       from math import pow
@@ -601,7 +608,7 @@ static:
 
   ## Export statement
 
-  block:
+  scope:
 
     let ast = quote do:
       export unsigned
@@ -610,7 +617,7 @@ static:
     of nnkExportStmt(ident"unsigned"):
       echo "ok"
 
-  block:
+  scope:
 
     let ast = quote do:
       export math except pow # we're going to implement our own exponentiation
@@ -621,7 +628,7 @@ static:
 
   ## Include statement
 
-  block:
+  scope:
 
     let ast = quote do:
       include blocks
@@ -632,7 +639,7 @@ static:
 
   ## Var section
 
-  block:
+  scope:
 
     let ast = quote do:
       var a = 3
@@ -649,7 +656,7 @@ static:
 
   ## Let section
 
-  block:
+  scope:
 
     let ast = quote do:
       let a = 3
@@ -666,7 +673,7 @@ static:
 
   ## Const section
 
-  block:
+  scope:
 
     let ast = quote do:
       const a = 3
@@ -683,7 +690,7 @@ static:
 
   ## Type section
 
-  block:
+  scope:
 
     let ast = quote do:
       type A = int
@@ -698,7 +705,7 @@ static:
     ):
       echo "ok"
 
-  block:
+  scope:
 
     let ast = quote do:
       type MyInt = distinct int
@@ -714,7 +721,7 @@ static:
     ):
       echo "ok"
 
-  block:
+  scope:
 
     let ast = quote do:
       type A[T] = expr1
@@ -736,7 +743,7 @@ static:
     ):
       echo "ok"
 
-  block:
+  scope:
 
     let ast = quote do:
       type IO = object of RootObj
@@ -755,7 +762,7 @@ static:
     ):
       echo "ok"
 
-  block:
+  scope:
     macro testRecCase(ast: untyped): untyped =
       ast.peelOff({nnkStmtList, nnkTypeSection})[2].matchAst:
       of nnkObjectTy(
@@ -819,7 +826,7 @@ static:
         of false:
           m: array[10, T]
 
-  block:
+  scope:
 
     let ast = quote do:
       type X = enum
@@ -832,7 +839,7 @@ static:
     ):
       echo "ok"
 
-  block:
+  scope:
 
     let ast = quote do:
       type Con = concept x,y,z
@@ -844,7 +851,7 @@ static:
       echo "ok"
 
 
-  block:
+  scope:
 
     let astX = quote do:
       type
@@ -853,10 +860,14 @@ static:
     let ast = astX.peelOff({nnkStmtList, nnkTypeSection})
 
     ast.matchAst(err):  # this is a sub ast for this a findAst or something like that is useful
-    of nnkTypeDef(_, nnkGenericParams( nnkIdentDefs( ident"T", nnkStaticTy( _ ), nnkEmpty )), _):
+    of nnkTypeDef(_, nnkGenericParams( nnkIdentDefs( ident"T", nnkCall( ident"[]", ident"static", _ ), _ )), _):
       echo "ok"
+    else:
+      echo "foobar"
+      echo ast.treeRepr
 
-  block:
+
+  scope:
     let ast = quote do:
       type MyProc[T] = proc(x: T)
 
@@ -928,7 +939,11 @@ static:
   testProcedureDeclaration:
     proc hello*[T: SomeInteger](x: int = 3, y: float32): int {.inline.} = discard
 
-  block:
+  echo "hello World"
+  echo "foobarz"
+
+  scope:
+    echo "foobarz"
 
     var ast = quote do:
       proc foobar(a, b: int): void
@@ -947,7 +962,7 @@ static:
     ):
       echo "ok"
 
-  block:
+  scope:
 
     let ast = quote do:
       proc hello(): var int
@@ -962,7 +977,7 @@ static:
 
   ## Iterator declaration
 
-  block:
+  scope:
 
     let ast = quote do:
       iterator nonsense[T](x: seq[T]): float {.closure.} =
@@ -974,7 +989,7 @@ static:
 
   ## Converter declaration
 
-  block:
+  scope:
 
     let ast = quote do:
       converter toBool(x: float): bool
@@ -985,7 +1000,7 @@ static:
 
   ## Template declaration
 
-  block:
+  scope:
     let ast = quote do:
       template optOpt{expr1}(a: int): int
 
