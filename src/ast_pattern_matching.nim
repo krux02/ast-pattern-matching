@@ -427,17 +427,19 @@ proc recursiveNodeVisiting*(arg: NimNode, callback: proc(arg: NimNode): bool) =
       recursiveNodeVisiting(child, callback)
 
 macro matchAstRecursive*(ast: NimNode; args: varargs[untyped]): untyped =
-  ## Does not recurse further on matched nodes.
+  # Does not recurse further on matched nodes.
   if args[^1].kind == nnkElse:
     error("Recursive matching with an else branch is pointless.", args[^1])
 
   let visitor = genSym(nskProc, "visitor")
   let visitorArg = genSym(nskParam, "arg")
+
   let visitorStmtList = newStmtList()
 
   let matchingSection = genSym(nskLabel, "matchingSection")
 
   let localsArraySym = genSym(nskVar, "locals")
+  let branchError = genSym(nskVar, "branchError")
   var localsArrayLen = 0
 
   for ofBranch in args:
@@ -449,35 +451,38 @@ macro matchAstRecursive*(ast: NimNode; args: varargs[untyped]): untyped =
 
     let stmtList = newStmtList()
     let matchingBranch = genSym(nskLabel, "matchingBranch")
-    let brachError = genSym(nskVar, "branchError")
-    let numLocalsUsed = generateMatchingCode(visitorArg, pattern, 0, matchingBranch, brachError, localsArraySym, stmtList)
+
+    let numLocalsUsed = generateMatchingCode(visitorArg, pattern, 0, matchingBranch, branchError, localsArraySym, stmtList)
     localsArrayLen = max(localsArrayLen, numLocalsUsed)
 
     stmtList.add code
     stmtList.add nnkBreakStmt.newTree(matchingSection)
 
-    let lengthLit = newLit(localsArrayLen)
+
     visitorStmtList.add quote do:
-      var `brachError`: MatchingError
-      var `localsArraySym`: array[`lengthLit`, NimNode]
+      `branchError`.kind = NoError
       block `matchingBranch`:
         `stmtList`
+
+  echo visitorStmtList.repr
 
 
   let resultIdent = ident"result"
 
   let visitingProc = bindSym"recursiveNodeVisiting"
+  let lengthLit = newLit(localsArrayLen)
 
   result = quote do:
     proc `visitor`(`visitorArg`: NimNode): bool =
       block `matchingSection`:
+        var `localsArraySym`: array[`lengthLit`, NimNode]
+        var `branchError`: MatchingError
         `visitorStmtList`
         `resultIdent` = true
 
     `visitingProc`(`ast`, `visitor`)
 
   debug result.repr
-
 
 ################################################################################
 ################################# Example Code #################################
