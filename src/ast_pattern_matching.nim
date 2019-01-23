@@ -527,9 +527,8 @@ when isMainModule:
 
     ast = ast[0]
     ast.matchAst(err):  # this is a sub ast for this a findAst or something like that is useful
-    of nnkTypeDef(_, nnkGenericParams( nnkIdentDefs( nnkIdent(strVal = "T"), nnkStaticTy( _ ), nnkEmpty )), _):
-      echo "ok"
-
+    of nnkTypeDef(_, nnkGenericParams( nnkIdentDefs( nnkIdent(strVal = "T"), `staticTy`, nnkEmpty )), _):
+      echo "`", staticTy.repr, "` used to be of nnkStaticTy, now it is ", staticTy.kind, " with ", staticTy[0].repr
     ast = quote do:
       if cond1: expr1 elif cond2: expr2 else: expr3
 

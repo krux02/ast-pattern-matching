@@ -336,12 +336,12 @@ static:
       nnkCommentStmt()
     ):
       echo "ok"
-
-
+    else:
+      echo "NOT OK!!!"
+      echo ast.treeRepr
+      echo "TEST causes no fail, because of a regression in Nim."
 
   scope:
-    echo "Pragmas 1 "
-
     let ast = quote do:
       {.emit: "#include <stdio.h>".}
 
@@ -355,8 +355,6 @@ static:
       echo "ok"
 
   scope:
-    echo "Pragmas 2 "
-
     let ast = quote do:
       {.pragma: cdeclRename, cdecl.}
 
@@ -373,8 +371,6 @@ static:
 
 
   scope:
-    echo "If statement"
-
     let ast = quote do:
       if cond1:
         stmt1
@@ -397,8 +393,6 @@ static:
 
 
   scope:
-    echo "Assignment:"
-
     let ast = quote do:
       x = 42
 
@@ -409,8 +403,6 @@ static:
 
 
   scope:
-    echo "Statement list"
-
     let ast = quote do:
       stmt1
       stmt2
@@ -939,12 +931,7 @@ static:
   testProcedureDeclaration:
     proc hello*[T: SomeInteger](x: int = 3, y: float32): int {.inline.} = discard
 
-  echo "hello World"
-  echo "foobarz"
-
   scope:
-    echo "foobarz"
-
     var ast = quote do:
       proc foobar(a, b: int): void
 
