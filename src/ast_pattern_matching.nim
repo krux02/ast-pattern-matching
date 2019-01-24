@@ -464,9 +464,6 @@ macro matchAstRecursive*(ast: NimNode; args: varargs[untyped]): untyped =
       block `matchingBranch`:
         `stmtList`
 
-  echo visitorStmtList.repr
-
-
   let resultIdent = ident"result"
 
   let visitingProc = bindSym"recursiveNodeVisiting"
