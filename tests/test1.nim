@@ -1,5 +1,16 @@
 import ast_pattern_matching
 
+macro testAddrAst(arg: typed): bool =
+  arg.expectKind nnkStmtListExpr
+  arg[0].expectKind(nnkVarSection)
+  arg[1].expectKind({nnkAddr, nnkCall})
+  result = newLit(arg[1].kind == nnkCall)
+
+const newAddrAst: bool = testAddrAst((var x: int; addr(x)))
+
+static:
+  echo "new addr ast: ", newAddrAst
+
 # TODO test on matching failures
 
 proc peelOff*(arg: NimNode, kinds: set[NimNodeKind]): NimNode {.compileTime.} =
@@ -197,9 +208,12 @@ static:
 
   scope:
     # The addr operator exists only on a typed ast.
-    macro testAddrOperator(ast: typed): untyped =
+    macro testAddrOperator(ast: untyped): untyped =
+      echo ast.treeRepr
       ast.matchAst(err):
       of nnkAddr(ident"x"):
+        echo "old nim"
+      of nnkCall(ident"addr", ident"x"):
         echo "ok"
 
     var x: int
