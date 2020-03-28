@@ -49,7 +49,7 @@ type
     WrongIdent
     WrongCustomCondition
 
-  MatchingError = object
+  MatchingError* = object
     node*: NimNode
     expectedKind*: set[NimNodeKind]
     case kind*: MatchingErrorKind
@@ -131,8 +131,8 @@ proc expectIdent(arg: NimNode; strVal: string): void {.compileTime.} =
     error("Expect ident `" & strVal & "` but got " & arg.repr)
 
 proc matchLengthKind*(arg: NimNode; kind: set[NimNodeKind]; length: int): MatchingError {.compileTime.} =
-  let kindFail   = not(kind.card == 0 or arg.kind in kind)
-  let lengthFail = not(length < 0 or length == arg.len)
+  template kindFail: bool   = not(kind.card == 0 or arg.kind in kind)
+  template lengthFail: bool = not(length < 0 or length == arg.len)
   if kindFail or lengthFail:
     result.node = arg
     result.kind = WrongKindLength
@@ -144,8 +144,8 @@ proc matchLengthKind*(arg: NimNode; kind: NimNodeKind; length: int): MatchingErr
   matchLengthKind(arg, {kind}, length)
 
 proc matchValue(arg: NimNode; kind: set[NimNodeKind]; value: SomeInteger): MatchingError {.compileTime.} =
-  let kindFail   = not(kind.card == 0 or arg.kind in kind)
-  let valueFail  = arg.intVal != int(value)
+  template  kindFail: bool  = not(kind.card == 0 or arg.kind in kind)
+  template  valueFail: bool = arg.intVal != int(value)
   if kindFail or valueFail:
     result.node = arg
     result.kind = WrongKindValue
@@ -156,8 +156,8 @@ proc matchValue(arg: NimNode; kind: NimNodeKind; value: SomeInteger): MatchingEr
   matchValue(arg, {kind}, value)
 
 proc matchValue(arg: NimNode; kind: set[NimNodeKind]; value: SomeFloat): MatchingError {.compileTime.} =
-  let kindFail   = not(kind.card == 0 or arg.kind in kind)
-  let valueFail  = arg.floatVal != float(value)
+  template kindFail: bool  = not(kind.card == 0 or arg.kind in kind)
+  template valueFail: bool = arg.floatVal != float(value)
   if kindFail or valueFail:
     result.node = arg
     result.kind = WrongKindValue
@@ -171,8 +171,8 @@ const nnkStrValKinds = {nnkStrLit, nnkRStrLit, nnkTripleStrLit, nnkIdent, nnkSym
 
 proc matchValue(arg: NimNode; kind: set[NimNodeKind]; value: string): MatchingError {.compileTime.} =
   # if kind * nnkStringLiterals TODO do something that ensures that here is only checked for string literals
-  let kindFail   = not(kind.card == 0 or arg.kind in kind)
-  let valueFail  =
+  template kindFail: bool  = not(kind.card == 0 or arg.kind in kind)
+  template valueFail: bool =
     if kind.card == 0:
       false
     else:

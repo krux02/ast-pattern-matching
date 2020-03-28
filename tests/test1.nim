@@ -262,7 +262,7 @@ static:
       (1, 2, (3))
 
     ast.matchAst:
-    of nnkPar(nnkIntLit(intVal = 1), nnkIntLit(intVal = 2), nnkPar(nnkIntLit(intVal = 3))):
+    of {nnkPar,nnkTupleConstr}(nnkIntLit(intVal = 1), nnkIntLit(intVal = 2), nnkPar(nnkIntLit(intVal = 3))):
       echo "ok"
 
 
