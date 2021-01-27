@@ -66,8 +66,8 @@ The grammar for the pattern matching looks like this:
     literals of a different kind such as ``123'u32``.
 
   * `` `somename` @ <pattern> `` a named subtree. it matches on
-    _<pattern>_ but binds the name `somename` to that node.
-    checked by _<pattern>_
+    ``<pattern>`` but binds the name `somename` to that node.
+    checked by ``<pattern>``
 
   * ``else:`` the else branch is the code path that is taken when the
     pattern fails to match. The else branch is optional. When a
