@@ -572,7 +572,7 @@ when isMainModule:
         echo "got the ident m"
 
     testRecCase:
-      type Obj[T] = object {.inheritable.}
+      type Obj[T] {.inheritable.} = object
         name: string
         case isFat: bool
         of true:
